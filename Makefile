@@ -8,3 +8,6 @@ test:
 
 lint:
 	$(VENV)/ruff check attendance tests && $(VENV)/mypy attendance
+
+context-export:
+	.venv/bin/python tools/export_context.py

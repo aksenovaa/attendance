@@ -1,0 +1,208 @@
+"""CLI: probe / roster-sync / pull."""
+
+from __future__ import annotations
+
+import argparse
+import calendar
+import csv
+import json
+import uuid
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+from .config import load_settings
+from .ingest.workly_api import WorklyClient
+from .store.db import connect
+
+
+def _month_bounds(month: str) -> tuple[str, str]:
+    year, mon = (int(x) for x in month.split("-"))
+    last = calendar.monthrange(year, mon)[1]
+    return f"{year:04d}-{mon:02d}-01", f"{year:04d}-{mon:02d}-{last:02d}"
+
+
+def _save_raw(data_dir: Path, month: str, name: str, payload: Any) -> None:
+    path = data_dir / "raw" / month
+    path.mkdir(parents=True, exist_ok=True)
+    (path / f"api_{name}.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
+
+
+def cmd_probe(_: argparse.Namespace) -> None:
+    settings = load_settings()
+    client = WorklyClient(settings)
+    account = client.get("accounts")
+    print("company:", account.get("company_name"))
+    print("tz:", account["settings"]["time_zone"])
+    print("employees:", len(client.get_all("employees")))
+
+
+def cmd_roster_sync(_: argparse.Namespace) -> None:
+    settings = load_settings()
+    client = WorklyClient(settings)
+    con = connect(settings.db_path)
+    for path, table, key in (
+        ("departments", "departments", "department_id"),
+        ("locations", "locations", "location_id"),
+        ("schedules", "schedules", "schedule_id"),
+    ):
+        rows = client.get_all(path)
+        for row in rows:
+            cols = [c for c in row if c in ("title", "pid", "type")]
+            names = ", ".join([key, *cols])
+            marks = ", ".join(["?"] * (len(cols) + 1))
+            values = [row.get(key)] + [row.get(c) for c in cols]
+            con.execute(
+                f"INSERT OR REPLACE INTO {table} ({names}) VALUES ({marks})", values
+            )
+        print(f"{table}: {len(rows)}")
+    employees = client.get_all("employees")
+    for emp in employees:
+        con.execute(
+            "INSERT OR REPLACE INTO employees (employee_id, tab_number, pin_code,"
+            " full_name, department_id, position_title, schedule_id, start_date)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (
+                emp["id"],
+                emp.get("tab_number"),
+                emp.get("pin_code"),
+                emp.get("full_name"),
+                (emp.get("department") or {}).get("id"),
+                (emp.get("positions") or [{}])[0].get("title"),
+                (emp.get("schedule") or {}).get("id"),
+                emp.get("start_date"),
+            ),
+        )
+    con.commit()
+    settings.out_dir.mkdir(parents=True, exist_ok=True)
+    out = settings.out_dir / "roster_to_map.csv"
+    with out.open("w", encoding="utf-8-sig", newline="") as fh:
+        writer = csv.writer(fh, delimiter=";")
+        writer.writerow(
+            [
+                "employee_id",
+                "tab_number",
+                "full_name",
+                "department_id",
+                "position",
+                "start_date",
+                "shop",
+                "exclude",
+            ]
+        )
+        for row in con.execute("SELECT * FROM employees ORDER BY full_name"):
+            writer.writerow(
+                [
+                    row["employee_id"],
+                    row["tab_number"],
+                    row["full_name"],
+                    row["department_id"],
+                    row["position_title"],
+                    row["start_date"],
+                    row["shop"] or "",
+                    row["exclude_from_timesheet"],
+                ]
+            )
+    print(f"employees: {len(employees)} → {out}")
+    print("Заполните shop (offset|wide) и exclude=1 для админа, затем roster-apply.")
+
+
+def cmd_pull(args: argparse.Namespace) -> None:
+    settings = load_settings()
+    client = WorklyClient(settings)
+    con = connect(settings.db_path)
+    start, end = _month_bounds(args.month)
+    run_id = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC).isoformat(timespec="seconds")
+    con.execute(
+        "INSERT INTO runs (run_id, month, started_at, status) VALUES (?,?,?,?)",
+        (run_id, args.month, now, "running"),
+    )
+    events = client.get_all("reports/inouts", start_date=start, end_date=end)
+    _save_raw(settings.data_dir, args.month, "inouts", events)
+    for ev in events:
+        key = f"{ev['employee_id']}|{ev['event_full_date']}|{ev['event_code']}"
+        con.execute(
+            "INSERT OR REPLACE INTO events_raw (event_key, employee_id,"
+            " event_full_date, event_code, mode, location_id, serial_number,"
+            " source, pulled_at, run_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (
+                key,
+                ev["employee_id"],
+                ev["event_full_date"],
+                ev["event_code"],
+                ev.get("mode"),
+                ev.get("location_id"),
+                ev.get("serial_number"),
+                "api",
+                now,
+                run_id,
+            ),
+        )
+    t12 = client.get_all("reports/t12", start_date=start, end_date=end)
+    _save_raw(settings.data_dir, args.month, "t12", t12)
+    days = 0
+    for item in t12:
+        for day in (item.get("report") or {}).get("days", []):
+            days += 1
+            con.execute(
+                "INSERT OR REPLACE INTO day_frame (employee_id, day, is_work_day,"
+                " is_holiday, work_time, absence_title, source, run_id)"
+                " VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    item["employee_id"],
+                    day["report_date"],
+                    int(bool(day.get("is_work_day"))),
+                    int(bool(day.get("is_holiday"))),
+                    day.get("work_time"),
+                    day.get("absence_cause_title"),
+                    "api",
+                    run_id,
+                ),
+            )
+    con.execute(
+        "UPDATE runs SET finished_at=?, status='ok' WHERE run_id=?", (now, run_id)
+    )
+    con.commit()
+    print(f"{args.month}: events={len(events)}, t12 employees={len(t12)}, days={days}")
+    print(f"run_id={run_id}, raw → data/raw/{args.month}/")
+
+
+def cmd_roster_apply(args: argparse.Namespace) -> None:
+    settings = load_settings()
+    con = connect(settings.db_path)
+    updated = 0
+    with Path(args.file).open(encoding="utf-8-sig") as fh:
+        for row in csv.DictReader(fh, delimiter=";"):
+            con.execute(
+                "UPDATE employees SET shop=?, exclude_from_timesheet=? WHERE employee_id=?",
+                (
+                    (row.get("shop") or "").strip() or None,
+                    int(row.get("exclude") or 0),
+                    int(row["employee_id"]),
+                ),
+            )
+            updated += 1
+    con.commit()
+    print(f"roster обновлён: {updated} строк")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="attendance")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("probe").set_defaults(func=cmd_probe)
+    sub.add_parser("roster-sync").set_defaults(func=cmd_roster_sync)
+    p_pull = sub.add_parser("pull")
+    p_pull.add_argument("--month", required=True)
+    p_pull.set_defaults(func=cmd_pull)
+    p_apply = sub.add_parser("roster-apply")
+    p_apply.add_argument("--file", required=True)
+    p_apply.set_defaults(func=cmd_roster_apply)
+    args = parser.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

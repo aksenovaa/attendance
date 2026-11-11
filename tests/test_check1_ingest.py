@@ -13,14 +13,15 @@ GOLDEN = Path(__file__).parent / "golden" / "2026-09" / "expected_workly_totals.
 
 
 def _blocks():
-    return (parse_summary(RAW / "09.2026.Офсет.xlsx")
-            + parse_summary(RAW / "09.2026.Широкоформат.xlsx"))
+    return parse_summary(RAW / "09.2026.Офсет.xlsx") + parse_summary(
+        RAW / "09.2026.Широкоформат.xlsx"
+    )
 
 
 def _golden() -> dict[str, dict[str, str]]:
-    text = GOLDEN.read_text(encoding="utf-8-sig")   # переживает BOM редактора/Excel
+    text = GOLDEN.read_text(encoding="utf-8-sig")  # переживает BOM редактора/Excel
     first = text.splitlines()[0]
-    delim = ";" if ";" in first else ","            # переживает замену разделителя
+    delim = ";" if ";" in first else ","  # переживает замену разделителя
     rows = list(csv.DictReader(text.splitlines(), delimiter=delim))
     return {r["employee"].strip(): r for r in rows}
 

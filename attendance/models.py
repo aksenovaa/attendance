@@ -1,4 +1,5 @@
 """Доменные модели. Время внутри — int минут от полуночи."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

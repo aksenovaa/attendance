@@ -4,12 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "attendance"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.11"
-dependencies = ["openpyxl>=3.1", "PyYAML>=6.0"]
+dependencies = [
+    "openpyxl>=3.1",
+    "PyYAML>=6.0",
+    "requests>=2.32",
+    "python-dotenv>=1.0",
+]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.5", "mypy>=1.10"]
+dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.10", "types-requests", "pre-commit"]
+
+[project.scripts]
+attendance = "attendance.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["attendance*"]

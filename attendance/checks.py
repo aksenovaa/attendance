@@ -1,4 +1,5 @@
 """Проверка 1: сходимость сводных таблиц Workly самих с собой и с ростером."""
+
 from __future__ import annotations
 
 import calendar
@@ -22,17 +23,24 @@ class Check1Row:
 @dataclass
 class Check1Report:
     rows: list[Check1Row] = field(default_factory=list)
-    excluded_present: list[str] = field(default_factory=list)   # в файле, но исключены из отчёта
+    excluded_present: list[str] = field(
+        default_factory=list
+    )  # в файле, но исключены из отчёта
     not_in_roster: list[str] = field(default_factory=list)
     not_in_file: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
-        return all(r.ok for r in self.rows) and not self.not_in_roster and not self.not_in_file
+        return (
+            all(r.ok for r in self.rows)
+            and not self.not_in_roster
+            and not self.not_in_file
+        )
 
 
-def check1(blocks: list[WorklyBlock], roster: dict[str, Employee],
-           year: int, month: int) -> Check1Report:
+def check1(
+    blocks: list[WorklyBlock], roster: dict[str, Employee], year: int, month: int
+) -> Check1Report:
     rep = Check1Report()
     days = calendar.monthrange(year, month)[1]
     seen: set[str] = set()
@@ -45,12 +53,23 @@ def check1(blocks: list[WorklyBlock], roster: dict[str, Employee],
         if emp is None:
             rep.not_in_roster.append(b.employee)
         diff = abs(b.sum_worked() - b.total)
-        tol = b.worked_rows()          # каждая строка теряет < 1 мин на секундах
+        tol = b.worked_rows()  # каждая строка теряет < 1 мин на секундах
         missing = tuple(d for d in range(1, days + 1) if d not in b.days_present())
-        rep.rows.append(Check1Row(b.employee, min_to_hm(b.total), min_to_hm(b.sum_worked()),
-                                  diff, tol, diff <= tol, missing))
+        rep.rows.append(
+            Check1Row(
+                b.employee,
+                min_to_hm(b.total),
+                min_to_hm(b.sum_worked()),
+                diff,
+                tol,
+                diff <= tol,
+                missing,
+            )
+        )
 
-    active = {n for n, e in roster.items() if month_str(year, month) not in e.exclude_reports}
+    active = {
+        n for n, e in roster.items() if month_str(year, month) not in e.exclude_reports
+    }
     rep.not_in_file = sorted(active - seen)
     return rep
 

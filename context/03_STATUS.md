@@ -1,0 +1,33 @@
+# Статус и решения
+
+## Готово
+Каркас (pyproject, Makefile, venv **Python 3.14**, pytest/ruff/mypy/pre-commit), git main+dev.
+models/timeutil/roster/checks(П1)/rules.synthesize(R9), ingest/workly.py (merged xlsx + резолв имён).
+API: config.py, ingest/workly_api.py (токен+refresh, пагинация, троттлинг, ретраи),
+store/schema.sql + db.py, cli.py (probe / roster-sync / roster-apply / pull).
+Тест пагинации зелёный. Структура context/ docs/ data/ out/, экспорт на Диск работает.
+Golden: сентябрь и октябрь 2026 утверждены.
+
+## Спринты до 30.11.2026
+S1 12–16.11: store + ingest API + roster sync + rules R1–R8 + checks + регрессия на golden raw. ← в работе
+S2 17–23.11: intake правок (скан→JSON, CSV/CLI) + очередь подтверждения + compare paper + synth v2 + отчёты; пересборка октября и сверка с утверждённым CSV.
+S3 24–30.11: планировщик write-back + эксперимент на тестовом сотруднике + Streamlit UI + документация; ноябрь на новом конвейере.
+
+## Решения (ADR)
+11.11 TZ Europe/Moscow.
+11.11 Ночные значения Workly не обнуляем (keep).
+11.11 25-й сотрудник = админ, в табель не входит.
+11.11 R3 чинится вставкой событий (модель пар).
+11.11 Write-back разрешён, включая синтез R9; только после утверждения, dry-run + ledger.
+11.11 Payroll/fines не используются.
+11.11 Каналы правок: A (ИИ-скан→JSON) + B (CSV/CLI) сейчас, C (Streamlit) в S3.
+11.11 1С отложен; выход CSV/PDF.
+11.11 Строки октября без меток → источник «решение руководителя 11.11.2026».
+11.11 Ретро-push не делаем: write-back с ноября 2026.
+11.11 Тестовый сотрудник разрешён (создать/удалить).
+11.11 venv Python 3.14; запуск через активацию venv.
+11.11 Резолв имён: алиасы + уникальная часть имени, неоднозначные не резолвятся.
+
+## Открытые вопросы
+- employee_id админа и карта employee_id → shop (из roster-sync).
+- Можно ли удалять события в веб-UI (откат ошибочного push)?
