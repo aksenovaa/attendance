@@ -100,18 +100,32 @@ class WorklyClient:
                 time.sleep(min(2**attempt, 30))
                 continue
             resp.raise_for_status()
-            result: dict[str, Any] = resp.json()
+            data = resp.json()
+            if isinstance(data, list):
+                return {"items": data}
+            result: dict[str, Any] = data
             return result
         raise WorklyError(f"GET {path}: не удалось за 5 попыток")
 
     def get_all(self, path: str, **params: Any) -> list[dict[str, Any]]:
+        """Пагинация с нормализацией ответов Workly.
+
+        Пустая выборка: _meta приходит списком [] (PHP), items может быть
+        ассоциативным массивом. Оба случая приводим к обычному виду.
+        """
         items: list[dict[str, Any]] = []
         page = 1
         while True:
             payload = self.get(path, page=page, **params)
-            items.extend(payload.get("items", []))
-            meta = payload.get("_meta", {})
-            if page >= int(meta.get("pageCount", 1) or 1):
+            raw = payload.get("items", [])
+            if isinstance(raw, dict):
+                raw = list(raw.values())
+            if isinstance(raw, list):
+                items.extend(row for row in raw if isinstance(row, dict))
+            meta = payload.get("_meta")
+            if not isinstance(meta, dict):
+                break
+            if page >= int(meta.get("pageCount") or 1):
                 break
             page += 1
         return items
