@@ -31,9 +31,10 @@ S3 24–30.11: планировщик write-back + эксперимент на �
 
 ## roster-sync выполнен: departments=3, schedules=7, employees=25 → out/roster_to_map.csv.
 Цеха разделяются отделами Workly (35066 offset, 35065 wide) — разметка автоматическая.
-Добавлены tools/roster_autofill.py и attendance/reconcile.py (gate S1: API vs xlsx).
+Ростер размечен: offset 13, wide 11, админ 134300 исключён. Добавлены tools/roster_autofill.py и attendance/reconcile.py; исправлена нормализация имён (пробелы Workly ломали сопоставление).
 Исправлено имя tests/test_checks_final.py (было с пробелом) — тесты П4 вернулись в прогон.
 
 Открытые вопросы
-- админ и сотрудники отдела 35064: подтвердить exclude/shop по out/roster_filled.csv.
+- t12.work_time недостоверен (~24 ч/день) — проверить сырой JSON, при подтверждении строить дни из events_raw.
+- в data/raw/2026-10/ нет сводных xlsx — положить для сверки.
 - Можно ли удалять события в веб-UI (откат ошибочного push)?
