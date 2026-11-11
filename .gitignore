@@ -1,12 +1,16 @@
-.venv/  out/  data/  __pycache__/  *.pyc  .pytest_cache/  .mypy_cache/  .ruff_cache/
-.env  *.sqlite  *.sqlite-journaldata/
-out/
+attendance.egg-info/
+build/
+data/
+dist/
+*.egg-info/
 .env
+.env  *.sqlite  *.sqlite-journaldata/
+.mypy_cache/
+out/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
 *.sqlite
 *.sqlite-journal
-data/
-attendance.egg-info/
-*.egg-info/
-build/
-dist/
-.ruff_cache/
+.venv/  out/  data/  __pycache__/  *.pyc  .pytest_cache/  .mypy_cache/  .ruff_cache/

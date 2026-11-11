@@ -43,21 +43,30 @@ def cmd_roster_sync(_: argparse.Namespace) -> None:
     settings = load_settings()
     client = WorklyClient(settings)
     con = connect(settings.db_path)
-    for path, table, key in (
-        ("departments", "departments", "department_id"),
-        ("locations", "locations", "location_id"),
-        ("schedules", "schedules", "schedule_id"),
-    ):
-        rows = client.get_all(path)
-        for row in rows:
-            cols = [c for c in row if c in ("title", "pid", "type")]
-            names = ", ".join([key, *cols])
-            marks = ", ".join(["?"] * (len(cols) + 1))
-            values = [row.get(key)] + [row.get(c) for c in cols]
-            con.execute(
-                f"INSERT OR REPLACE INTO {table} ({names}) VALUES ({marks})", values
-            )
-        print(f"{table}: {len(rows)}")
+    for row in client.get_all("departments"):
+        con.execute(
+            "INSERT OR REPLACE INTO departments (department_id, title, pid)"
+            " VALUES (?,?,?)",
+            (row.get("id"), row.get("title"), _scalar(row.get("pid"))),
+        )
+    for row in client.get_all("locations"):
+        con.execute(
+            "INSERT OR REPLACE INTO locations (location_id, title) VALUES (?,?)",
+            (row.get("id"), row.get("title")),
+        )
+    for row in client.get_all("schedules"):
+        con.execute(
+            "INSERT OR REPLACE INTO schedules (schedule_id, title, type)"
+            " VALUES (?,?,?)",
+            (row.get("id"), row.get("title"), _scalar(row.get("type"))),
+        )
+    con.commit()
+    print("departments:")
+    for r in con.execute("SELECT department_id, title FROM departments"):
+        print("  ", r["department_id"], r["title"])
+    print("schedules:")
+    for r in con.execute("SELECT schedule_id, title, type FROM schedules"):
+        print("  ", r["schedule_id"], r["title"], r["type"])
     employees = client.get_all("employees")
     for emp in employees:
         con.execute(
@@ -202,6 +211,22 @@ def main() -> None:
     p_apply.set_defaults(func=cmd_roster_apply)
     args = parser.parse_args()
     args.func(args)
+
+
+def _scalar(value: object) -> object:
+    """SQLite принимает только скаляры: вложенные dict/list отбрасываем."""
+    if isinstance(value, dict | list):
+        return None
+    return value
+
+
+def _title_of(value: object) -> str | None:
+    if isinstance(value, list) and value:
+        first = value[0]
+        if isinstance(first, dict):
+            title = first.get("title")
+            return str(title) if title is not None else None
+    return None
 
 
 if __name__ == "__main__":

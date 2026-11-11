@@ -2,6 +2,7 @@
 
 Шапка сотрудника — merged A:E (значение только в A); таблица имеет
 двухстрочную шапку («Дата|Факт» + «Приход|Уход|Отработано»).
+Итог блока — HH:MM в хвостовых ячейках (позиция плавает, сканируем все).
 """
 
 from __future__ import annotations
@@ -55,7 +56,7 @@ def parse_summary(path: Path) -> list[WorklyBlock]:
     for row in sheet.iter_rows(values_only=True):
         first = _s(row[0]) if len(row) > 0 else ""
         second = _s(row[1]) if len(row) > 1 else ""
-        tail = [_s(cell) for cell in row[3:7]]
+        tail = [_s(cell) for cell in row[3:]]
 
         if not first and any(is_hm(item) for item in tail):
             flush(hm_to_min(next(item for item in tail if is_hm(item))))
@@ -80,5 +81,9 @@ def parse_summary(path: Path) -> list[WorklyBlock]:
         if first and second in ("", first) and not _is_junk(first, sheet.title):
             flush(0)
             emp = resolve_name(first)
+
+    if emp is not None:
+        # последний блок без распознанной строки итога: добираем, итог = Σ строк
+        flush(sum(r.worked for r in rows if r.worked is not None))
 
     return blocks
