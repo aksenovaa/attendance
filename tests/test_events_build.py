@@ -54,3 +54,10 @@ def test_orphan_out_is_flagged() -> None:
     built = build_days([_ev("2026-09-01 07:00:00", 1)])
     assert built[(1, "2026-09-01")].orphan_out == 1
     assert built[(1, "2026-09-01")].worked is None
+
+
+def test_pair_over_limit_is_not_paired() -> None:
+    built = build_days([_ev("2026-10-23 08:17:00", 0), _ev("2026-10-24 23:31:00", 1)])
+    assert built[(1, "2026-10-23")].worked is None
+    assert built[(1, "2026-10-23")].unclosed_in is True
+    assert built[(1, "2026-10-24")].orphan_out == 1

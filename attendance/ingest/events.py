@@ -72,7 +72,9 @@ def load_events(con: sqlite3.Connection) -> list[Event]:
 
 
 def build_days(
-    events: Iterable[Event], mode: Mode = "pairs"
+    events: Iterable[Event],
+    mode: Mode = "pairs",
+    max_pair_min: int = 26 * 60,
 ) -> dict[tuple[int, str], Built]:
     by_emp: dict[int, list[Event]] = defaultdict(list)
     for event in events:
@@ -97,9 +99,14 @@ def build_days(
                 continue
             start = open_in
             open_in = None
+            span = int((event.ts - start).total_seconds())
+            if span > max_pair_min * 60:
+                acc.setdefault(_key(emp, start), _Acc()).unclosed_in = True
+                acc.setdefault(_key(emp, event.ts), _Acc()).orphan_out += 1
+                continue
             slot = acc.setdefault(_key(emp, start), _Acc())
             slot.pairs += 1
-            slot.seconds += int((event.ts - start).total_seconds())
+            slot.seconds += span
             slot.cout = _minutes(event.ts)
             slot.last_out = event.ts
             if slot.cin is None:

@@ -26,11 +26,13 @@ def reconcile_events(
     xlsx = _xlsx_minutes(paths)
     diffs: list[Diff] = []
     for key in sorted(set(api) | set(xlsx)):
-        left, right = api.get(key), xlsx.get(key)
-        if left is None:
-            diffs.append(Diff(key[0], key[1], "нет в событиях", "-", str(right)))
-        elif right is None:
-            diffs.append(Diff(key[0], key[1], "нет в xlsx", str(left), "-"))
-        elif left != right:
-            diffs.append(Diff(key[0], key[1], "worked", str(left), str(right)))
+        left, right = api.get(key, 0), xlsx.get(key, 0)
+        if left == right:
+            continue
+        field = "worked"
+        if key not in api:
+            field = "нет событий"
+        elif key not in xlsx:
+            field = "нет в xlsx"
+        diffs.append(Diff(key[0], key[1], field, str(left), str(right)))
     return diffs, len(set(api) & set(xlsx))
