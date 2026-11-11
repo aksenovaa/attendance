@@ -15,13 +15,20 @@ class RowCheck:
     day: int
     worked: int
     expected: int
+    pairs: int = 1
 
     @property
     def ok(self) -> bool:
-        return self.worked == self.expected
+        if self.pairs <= 1:
+            return self.worked == self.expected
+        return 0 <= self.worked <= self.expected
 
 
-def check4(rows: Iterable[ShiftRow]) -> list[RowCheck]:
+def check4(
+    rows: Iterable[ShiftRow],
+    pairs: dict[tuple[str, int], int] | None = None,
+) -> list[RowCheck]:
+    pairs = pairs or {}
     out: list[RowCheck] = []
     for row in rows:
         if row.dayoff or row.cin is None or row.cout is None or row.worked is None:
@@ -32,6 +39,7 @@ def check4(rows: Iterable[ShiftRow]) -> list[RowCheck]:
                 row.day,
                 row.worked,
                 duration_min(row.cin, row.cout),
+                pairs.get((row.employee, row.day), 1),
             )
         )
     return out
