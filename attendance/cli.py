@@ -13,6 +13,7 @@ from typing import Any
 
 from .config import load_settings
 from .ingest.workly_api import WorklyClient
+from .reconcile import reconcile, write_report
 from .store.db import connect
 
 
@@ -209,6 +210,9 @@ def main() -> None:
     p_apply = sub.add_parser("roster-apply")
     p_apply.add_argument("--file", required=True)
     p_apply.set_defaults(func=cmd_roster_apply)
+    p_rec = sub.add_parser("reconcile")
+    p_rec.add_argument("--month", required=True)
+    p_rec.set_defaults(func=cmd_reconcile)
     args = parser.parse_args()
     args.func(args)
 
@@ -227,6 +231,23 @@ def _title_of(value: object) -> str | None:
             title = first.get("title")
             return str(title) if title is not None else None
     return None
+
+
+def cmd_reconcile(args: argparse.Namespace) -> None:
+    settings = load_settings()
+    con = connect(settings.db_path)
+    raw = settings.data_dir / "raw" / args.month
+    paths = sorted(p for p in raw.glob("*.xlsx") if "ПриходУход" not in p.name)
+    if not paths:
+        raise SystemExit(f"Нет сводных xlsx в {raw}")
+    diffs, common = reconcile(con, args.month, paths)
+    out = settings.out_dir / f"reconcile_{args.month}.csv"
+    write_report(diffs, out)
+    print(f"{args.month}: общих дней={common}, расхождений={len(diffs)} → {out}")
+    for diff in diffs[:20]:
+        print(
+            f"  {diff.employee} {diff.day:02d} {diff.field}: {diff.api} / {diff.xlsx}"
+        )
 
 
 if __name__ == "__main__":

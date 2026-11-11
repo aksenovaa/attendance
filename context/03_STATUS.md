@@ -6,6 +6,7 @@ models/timeutil/roster/checks(П1)/rules.synthesize(R9), ingest/workly.py (merge
 API: config.py, ingest/workly_api.py (токен+refresh, пагинация, троттлинг, ретраи),
 store/schema.sql + db.py, cli.py (probe / roster-sync / roster-apply / pull).
 Тест пагинации зелёный. Pull проверен: 2026-10 — 838 событий / 737 дней, 2026-09 — 671 событие / 680 дней; t12 отдаёт 24 сотрудника (админ не попадает). Справочники API: departments=3, locations=1. Парсер сводных: исправлена потеря последнего блока; HH:MM принимает трёхзначные часы (итоги месяца >99 ч) — это был корень нулевых итогов и потери блоков. Структура context/ docs/ data/ out/, экспорт на Диск работает.
+Парсер сводных сентября закрыт: 13 офсет + 10 ШФ, трёхзначные итоги читаются, 9 тестов зелёные (831bfaa). Raw-итоги Workly ≠ утверждённый табель — это норма: П1 сверяет raw с raw, П4/П5 — финал с утверждённым.
 Golden: сентябрь и октябрь 2026 утверждены.
 
 ## Спринты до 30.11.2026
@@ -28,6 +29,11 @@ S3 24–30.11: планировщик write-back + эксперимент на �
 11.11 venv Python 3.14; запуск через активацию venv.
 11.11 Резолв имён: алиасы + уникальная часть имени, неоднозначные не резолвятся.
 
-## Открытые вопросы
-- employee_id админа и карта employee_id → shop (из roster-sync).
+## roster-sync выполнен: departments=3, schedules=7, employees=25 → out/roster_to_map.csv.
+Цеха разделяются отделами Workly (35066 offset, 35065 wide) — разметка автоматическая.
+Добавлены tools/roster_autofill.py и attendance/reconcile.py (gate S1: API vs xlsx).
+Исправлено имя tests/test_checks_final.py (было с пробелом) — тесты П4 вернулись в прогон.
+
+Открытые вопросы
+- админ и сотрудники отдела 35064: подтвердить exclude/shop по out/roster_filled.csv.
 - Можно ли удалять события в веб-UI (откат ошибочного push)?
