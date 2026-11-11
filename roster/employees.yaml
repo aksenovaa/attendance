@@ -1,0 +1,30 @@
+version: 1
+employees:
+  # ── Офсет ──
+  - {name: Альфредо, dept: offset}
+  - {name: Улукбек, dept: offset}
+  - {name: Аринаркина Ольга, dept: offset, aliases: [Аринаркина О.]}
+  - {name: Григорьев Владимир, dept: offset, aliases: [Григорьев В.]}
+  - {name: Живорыкин Илья, dept: offset, aliases: [Живорыкин И.]}
+  - {name: Ковалева Татьяна, dept: offset, aliases: [Ковалева Т.]}
+  - {name: Ковбас Павел, dept: offset, aliases: [Ковбас П.]}
+  - {name: Коняхина Ольга, dept: offset, aliases: [Коняхина О.]}
+  - {name: Малькова Юлия, dept: offset, aliases: [Малькова Ю.]}
+  - {name: Пердмо Эктор, dept: offset, aliases: [Эктор П., Пердмо Э.]}
+  - {name: Симакова Светлана, dept: offset, aliases: [Симакова С.]}
+  - {name: Таланцева Наталья, dept: offset, aliases: [Таланцева Н.]}
+  - {name: Шумиков Герман, dept: offset, aliases: [Шумиков Г., Герман Ш.]}
+  # ── Широкоформат ──
+  - {name: Отабек, dept: wide}
+  - {name: Рустам, dept: wide}
+  - {name: Алтыбоев Турсунбай, dept: wide}
+  - {name: Зайцев Александр, dept: wide}
+  - {name: Ковалёв Евгений, dept: wide}
+  - {name: Притворов Павел, dept: wide}
+  - {name: Саркисян Арташес, dept: wide}
+  - {name: Халбоев Жомшид, dept: wide, flags: [master, synth_total_only]}
+  - {name: Халбоев Журат, dept: wide, exclude_reports: ["2026-09"]}   # в сентябре не работал
+  - {name: Хожиев Ильхом, dept: wide}
+
+# Встречаются только на бумаге → не сотрудники, а очередь ручной проверки
+paper_only: [Тараненко А., Карулин В., Юсов И., Гуля, Ушова О., Кристына]

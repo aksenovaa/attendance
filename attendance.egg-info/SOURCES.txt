@@ -1,0 +1,14 @@
+pyproject.toml
+attendance/checks.py
+attendance/models.py
+attendance/roster.py
+attendance/timeutil.py
+attendance.egg-info/PKG-INFO
+attendance.egg-info/SOURCES.txt
+attendance.egg-info/dependency_links.txt
+attendance.egg-info/requires.txt
+attendance.egg-info/top_level.txt
+attendance/ingest/workly.py
+attendance/rules/synthesize.py
+tests/test_check1_ingest.py
+tests/test_synthesize.py
