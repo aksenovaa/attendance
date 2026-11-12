@@ -1,11 +1,23 @@
 # Статус и решения (11.11.2026)
 
+## Незавершённые изменения (in-flight; якорь передачи контекста)
+- CLI: обработчики build/report/corrections-* написаны, но НЕ зарегистрированы в парсере
+  (usage error) — проводка выполняется в этом шаге.
+- Приёмка S2: пересборка октября пайплайном и сверка с утверждённым CSV — не выполнена.
+- Тестовый сотрудник 163167 не удалён (удалить после экспериментов).
+- Ждём вендора: DELETE /v1/times/{id}; почему t12 не видит отдел 35064; подтверждение 08:00;
+  ответы письма v2 (критичны 1–4).
+- Остаток S2: compare paper, synth v2, XLSX/PDF, формальный П5.
+
+
 ## Готово
 Каркас: pyproject, Makefile, venv Python 3.14, pytest/ruff/mypy/pre-commit, git main+dev.
 Модули: models, timeutil, roster (алиасы + резолв), checks (П1), checks_final (П4),
 rules.anomalies (R1–R6, R9), rules.synthesize (R9), ingest.workly (xlsx), ingest.workly_api,
 ingest.events (модель пар), store (schema.sql + db), reconcile, reconcile_events,
-cli: probe / roster-sync / roster-apply / pull / reconcile / reconcile-events.
+intake, merge, report/csv_ (S2, тесты зелёные);
+cli: probe / roster-sync / roster-apply / pull / reconcile / reconcile-events
+(build / report / corrections-* — проводка в этом шаге).
 Тесты зелёные. Структура context/ docs/ data/ out/, экспорт на Диск работает.
 
 ## Проверки и эксперименты

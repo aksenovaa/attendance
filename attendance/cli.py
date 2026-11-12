@@ -13,8 +13,11 @@ from typing import Any
 
 from .config import load_settings
 from .ingest.workly_api import WorklyClient
+from .intake import load_csv, load_json, save
+from .merge import build_final, check3
 from .reconcile import reconcile, write_report
 from .reconcile_events import reconcile_events
+from .report.csv_ import write as write_csv
 from .store.db import connect
 
 
@@ -218,6 +221,26 @@ def main() -> None:
     p_rec.add_argument("--month", required=True)
     p_rec.set_defaults(func=cmd_reconcile)
     args = parser.parse_args()
+    p_ca = sub.add_parser("corrections-add")
+    p_ca.add_argument("--month", required=True)
+    p_ca.add_argument("--file", required=True)
+    p_ca.set_defaults(func=cmd_corrections_add)
+
+    p_cr = sub.add_parser("corrections-review")
+    p_cr.add_argument("--month", required=True)
+    p_cr.set_defaults(func=cmd_corrections_review)
+
+    p_cc = sub.add_parser("corrections-accept")
+    p_cc.add_argument("--id", type=int, action="append", required=True)
+    p_cc.set_defaults(func=cmd_corrections_accept)
+
+    p_b = sub.add_parser("build")
+    p_b.add_argument("--month", required=True)
+    p_b.set_defaults(func=cmd_build)
+
+    p_rp = sub.add_parser("report")
+    p_rp.add_argument("--month", required=True)
+    p_rp.set_defaults(func=cmd_report)
     args.func(args)
 
 
@@ -269,6 +292,78 @@ def cmd_reconcile_events(args: argparse.Namespace) -> None:
         print(
             f"  {diff.employee} {diff.day:02d} {diff.field}: {diff.api} / {diff.xlsx}"
         )
+
+
+def cmd_corrections_add(args: argparse.Namespace) -> None:
+    settings = load_settings()
+    con = connect(settings.db_path)
+    path = Path(args.file)
+    items = (
+        load_csv(path, con, args.month)
+        if path.suffix.lower() == ".csv"
+        else load_json(path, con, args.month)
+    )
+    source = items[0].source if items else path.stem
+    count, pending = save(con, args.month, items, source)
+    print(f"{args.month}: принято {count}, в очередь подтверждения {pending}")
+
+
+def cmd_corrections_review(args: argparse.Namespace) -> None:
+    settings = load_settings()
+    con = connect(settings.db_path)
+    query = (
+        "SELECT c.id, e.full_name, c.day, c.action, c.cin, c.cout, c.worked,"
+        " c.source, c.note FROM corrections c JOIN employees e"
+        " ON e.employee_id = c.employee_id"
+        " WHERE c.month=? AND c.accepted=0 ORDER BY e.full_name, c.day"
+    )
+    rows = list(con.execute(query, (args.month,)))
+    if not rows:
+        print("Очередь пуста.")
+        return
+    for r in rows:
+        print(
+            f"[{r['id']}] {r['full_name']} д{r['day']:02d} {r['action']}"
+            f" {r['cin'] or '-'}→{r['cout'] or '-'} ({r['worked'] or '-'})"
+            f" | {r['source']} | {r['note']}"
+        )
+    print("\nПринять: attendance corrections-accept --id N [--id M ...]")
+
+
+def cmd_corrections_accept(args: argparse.Namespace) -> None:
+    settings = load_settings()
+    con = connect(settings.db_path)
+    for item in args.id:
+        con.execute("UPDATE corrections SET accepted=1 WHERE id=?", (item,))
+    con.commit()
+    print(f"Принято правок: {len(args.id)}")
+
+
+def cmd_build(args: argparse.Namespace) -> None:
+    settings = load_settings()
+    con = connect(settings.db_path)
+    run_id = uuid.uuid4().hex[:12]
+    rows = build_final(con, args.month, run_id)
+    report = check3(con, args.month, run_id, rows)
+    bad = [r for r in report if not r.ok]
+    print(f"{args.month}: строк {len(rows)}, run_id={run_id}, П3 FAIL={len(bad)}")
+    for r in bad:
+        print(f"  emp={r.employee_id}: {r.base} + {r.delta} != {r.final}")
+    (settings.data_dir / "last_run.txt").write_text(run_id, encoding="utf-8")
+
+
+def cmd_report(args: argparse.Namespace) -> None:
+    settings = load_settings()
+    con = connect(settings.db_path)
+    run_id = (settings.data_dir / "last_run.txt").read_text("utf-8").strip()
+    rows = build_final(con, args.month, run_id)
+    names = {
+        r["employee_id"]: " ".join((r["full_name"] or "").split())
+        for r in con.execute("SELECT employee_id, full_name FROM employees")
+    }
+    out = settings.out_dir / f"{args.month}.Полный табель.csv"
+    write_csv(out, args.month, rows, names)
+    print(f"Записано: {out}")
 
 
 if __name__ == "__main__":
