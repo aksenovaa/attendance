@@ -81,3 +81,11 @@ Ledger: data/ledger/*.jsonl + копия на Диск. Откат — удал�
 
 ## Новый факт (ДД.ММ.ГГГГ)
 Описание.
+
+## Отпуска как данные (12.11.2026)
+Таблица vacations(id, employee_id, start_date, end_date, reason, source) — периоды, не месячные правки.
+Создаётся автоматически (vacations.ensure_schema), миграция не требуется.
+CLI: vacation-add (--employee | --employee-id, --start, --end, --reason, --source), vacation-list, vacation-del.
+Слой в merge: события API → отпуск (state='Отпуск', времена/часы очищаются) → правки corrections.
+Правка сильнее отпуска; изменение пишется в аудит с source='vacations', П3 сходится.
+Дни обрезаются по границам месяца (days_by_employee).

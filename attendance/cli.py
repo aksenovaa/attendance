@@ -249,6 +249,23 @@ def main() -> None:
     p_rp.add_argument("--month", required=True)
     p_rp.set_defaults(func=cmd_report)
 
+    p_va = sub.add_parser("vacation-add")
+    p_va.add_argument("--employee")
+    p_va.add_argument("--employee-id", type=int)
+    p_va.add_argument("--start", required=True)
+    p_va.add_argument("--end", required=True)
+    p_va.add_argument("--reason", default="Отпуск")
+    p_va.add_argument("--source", default="manual")
+    p_va.set_defaults(func=cmd_vacation_add)
+
+    p_vl = sub.add_parser("vacation-list")
+    p_vl.add_argument("--month")
+    p_vl.set_defaults(func=cmd_vacation_list)
+
+    p_vd = sub.add_parser("vacation-del")
+    p_vd.add_argument("--id", type=int, required=True)
+    p_vd.set_defaults(func=cmd_vacation_del)
+
     args = parser.parse_args()
     args.func(args)
 
@@ -380,6 +397,53 @@ def cmd_report(args: argparse.Namespace) -> None:
     out = settings.out_dir / f"{args.month}.Полный табель.csv"
     write_csv(out, args.month, rows, names, order=order)
     print(f"Записано: {out}")
+
+
+def cmd_vacation_add(args: argparse.Namespace) -> None:
+    from .intake import name_to_id
+    from .roster import resolve_name
+    from .vacations import add as vac_add
+
+    settings = load_settings()
+    con = connect(settings.db_path)
+    if args.employee_id is not None:
+        eid = int(args.employee_id)
+    elif args.employee:
+        names = name_to_id(con)
+        key = resolve_name(" ".join(args.employee.split()))
+        if key not in names:
+            raise SystemExit(f"Сотрудник не найден в ростере: {args.employee!r}")
+        eid = names[key]
+    else:
+        raise SystemExit("Укажите --employee или --employee-id")
+    vid = vac_add(con, eid, args.start, args.end, args.reason, args.source)
+    print(f"Отпуск id={vid}: employee_id={eid}, {args.start} — {args.end}")
+
+
+def cmd_vacation_list(args: argparse.Namespace) -> None:
+    from .vacations import listing
+
+    settings = load_settings()
+    con = connect(settings.db_path)
+    names = {
+        r["employee_id"]: " ".join((r["full_name"] or "").split())
+        for r in con.execute("SELECT employee_id, full_name FROM employees")
+    }
+    rows = listing(con, args.month)
+    if not rows:
+        print("Отпусков нет.")
+        return
+    for v in rows:
+        who = names.get(v.employee_id, str(v.employee_id))
+        print(f"[{v.id}] {who}: {v.start_date} — {v.end_date} ({v.reason}) {v.source}")
+
+
+def cmd_vacation_del(args: argparse.Namespace) -> None:
+    from .vacations import remove
+
+    settings = load_settings()
+    con = connect(settings.db_path)
+    print(f"Удалено записей: {remove(con, args.id)}")
 
 
 if __name__ == "__main__":

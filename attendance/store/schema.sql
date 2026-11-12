@@ -33,3 +33,15 @@ CREATE TABLE IF NOT EXISTS writeback_ledger(
   event_key TEXT PRIMARY KEY, employee_id INTEGER, event_time TEXT,
   event_code INTEGER, kind TEXT, posted_at TEXT, response TEXT);
 CREATE INDEX IF NOT EXISTS ix_events_emp_date ON events_raw(employee_id, event_full_date);
+
+-- Отпуска: периоды, а не ежемесячные правки (12.11.2026)
+CREATE TABLE IF NOT EXISTS vacations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT 'Отпуск',
+    source TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_vacations_emp ON vacations(employee_id);
+CREATE INDEX IF NOT EXISTS idx_vacations_range ON vacations(start_date, end_date);

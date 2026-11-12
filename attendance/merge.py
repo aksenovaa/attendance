@@ -9,6 +9,7 @@ from datetime import UTC, date, datetime
 
 from .ingest.events import build_days, load_events
 from .timeutil import duration_min, hm_to_min, min_to_hm
+from .vacations import days_by_employee
 
 TAGS = {
     "set": "правка",
@@ -149,6 +150,7 @@ def build_final(con: sqlite3.Connection, month: str, run_id: str) -> list[FinalR
     ndays = calendar.monthrange(year, mon)[1]
     built = build_days(load_events(con))
     corr = _corrections(con, month)
+    vac = days_by_employee(con, month)
     now = datetime.now(UTC).isoformat(timespec="seconds")
     employees = _employee_order(con)
 
@@ -166,6 +168,12 @@ def build_final(con: sqlite3.Connection, month: str, run_id: str) -> list[FinalR
                 pairs=b.pairs if b else 0,
             )
             before = slot.snapshot()
+            if iso in vac.get(eid, ()):
+                slot.state = "Отпуск"
+                slot.cin = None
+                slot.cout = None
+                slot.worked = None
+                slot.source = "vacations"
             for c in corr.get((eid, day), []):
                 _apply(slot, c)
                 slot.tag = TAGS.get(c["action"], "правка")
