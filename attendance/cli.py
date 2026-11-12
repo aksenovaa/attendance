@@ -206,21 +206,28 @@ def cmd_roster_apply(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="attendance")
     sub = parser.add_subparsers(dest="cmd", required=True)
+
+    # S1 команды
     sub.add_parser("probe").set_defaults(func=cmd_probe)
     sub.add_parser("roster-sync").set_defaults(func=cmd_roster_sync)
+
     p_pull = sub.add_parser("pull")
     p_pull.add_argument("--month", required=True)
     p_pull.set_defaults(func=cmd_pull)
+
     p_apply = sub.add_parser("roster-apply")
     p_apply.add_argument("--file", required=True)
     p_apply.set_defaults(func=cmd_roster_apply)
+
     p_re = sub.add_parser("reconcile-events")
     p_re.add_argument("--month", required=True)
     p_re.set_defaults(func=cmd_reconcile_events)
+
     p_rec = sub.add_parser("reconcile")
     p_rec.add_argument("--month", required=True)
     p_rec.set_defaults(func=cmd_reconcile)
-    args = parser.parse_args()
+
+    # S2 команды — ПЕРЕД parse_args()
     p_ca = sub.add_parser("corrections-add")
     p_ca.add_argument("--month", required=True)
     p_ca.add_argument("--file", required=True)
@@ -241,6 +248,8 @@ def main() -> None:
     p_rp = sub.add_parser("report")
     p_rp.add_argument("--month", required=True)
     p_rp.set_defaults(func=cmd_report)
+
+    args = parser.parse_args()
     args.func(args)
 
 
