@@ -59,6 +59,19 @@ def _corrections(
     return grouped
 
 
+def _ensure_columns(con: sqlite3.Connection) -> None:
+    """Идемпотентная миграция: state, worked_min, pairs в shifts_final."""
+    cols = {r["name"] for r in con.execute("PRAGMA table_info(shifts_final)")}
+    for name, decl in (
+        ("state", "TEXT NOT NULL DEFAULT ''"),
+        ("worked_min", "INTEGER"),
+        ("pairs", "INTEGER NOT NULL DEFAULT 0"),
+    ):
+        if name not in cols:
+            con.execute(f"ALTER TABLE shifts_final ADD COLUMN {name} {decl}")
+    con.commit()
+
+
 class _Slot:
     """Изменяемое состояние дня (типизировано явно, без object)."""
 
@@ -154,6 +167,7 @@ def build_final(con: sqlite3.Connection, month: str, run_id: str) -> list[FinalR
     now = datetime.now(UTC).isoformat(timespec="seconds")
     employees = _employee_order(con)
 
+    _ensure_columns(con)
     con.execute("DELETE FROM shifts_final WHERE run_id=?", (run_id,))
     result: list[FinalRow] = []
     for eid in employees:
@@ -212,7 +226,8 @@ def build_final(con: sqlite3.Connection, month: str, run_id: str) -> list[FinalR
             )
             con.execute(
                 "INSERT OR REPLACE INTO shifts_final (employee_id, day, cin, cout,"
-                " worked, tag, source, rule, run_id) VALUES (?,?,?,?,?,?,?,?,?)",
+                " worked, tag, source, rule, run_id, state, worked_min, pairs)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     eid,
                     iso,
@@ -223,6 +238,9 @@ def build_final(con: sqlite3.Connection, month: str, run_id: str) -> list[FinalR
                     row.source,
                     "",
                     run_id,
+                    row.state,
+                    row.worked,
+                    row.pairs,
                 ),
             )
             result.append(row)

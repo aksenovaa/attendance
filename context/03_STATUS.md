@@ -70,3 +70,11 @@ Payroll/fines не используются. 1С отложен, выход CSV/
 Добавлен Streamlit UI (attendance/ui/app.py), цель `make ui`, 5 разделов MVP.
 Техдолг UI: inline-редактирование сетки и write-back-страница — после п.2 (state в shifts_final) и планировщика.
 Зависимость streamlit поставлена напрямую; закрепить в pyproject отдельным шагом.
+
+## Обновление 12.11.2026 — GUI работает, п.2 закрыт
+Streamlit MVP запущен (commit 720cf15), use_container_width заменён на width="stretch".
+Хожиев Ильхом — отпуск подтверждён и внесён; в ноябре 4 отпуска.
+п.2: в shifts_final добавлены state, worked_min, pairs (автомиграция в build_final).
+Исправлена ошибочная интерпретация: «мало часов» было следствием SUM по TEXT-колонке worked,
+а не проблемой данных. Реальные итоги считаются по worked_min.
+day_frame решено оставить как источник календаря; work_time оттуда не используется.

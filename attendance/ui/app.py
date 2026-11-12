@@ -103,7 +103,7 @@ def page_table(settings: object, month: str, names: dict[int, str]) -> None:
     df = pd.read_csv(path, sep=";", dtype=str, keep_default_na=False)
     who = st.selectbox("Сотрудник", ["все", *names.values()])
     view = df if who == "все" else _block(df, who)
-    st.dataframe(view, use_container_width=True, hide_index=True)
+    st.dataframe(view, width="stretch", hide_index=True)
     st.download_button(
         "Скачать CSV", path.read_bytes(), file_name=path.name, mime="text/csv"
     )
@@ -175,7 +175,7 @@ def page_corrections(
             for r in rows
         ]
     )
-    st.dataframe(table, use_container_width=True, hide_index=True)
+    st.dataframe(table, width="stretch", hide_index=True)
     cid = st.number_input("id правки", min_value=1, value=1, key="corr_id")
     left, right = st.columns(2)
     if left.button("Принять (accepted=1)"):
@@ -219,7 +219,7 @@ def page_vacations(con: sqlite3.Connection, month: str, names: dict[int, str]) -
                 for v in rows
             ]
         ),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
     vid = st.number_input("id отпуска", min_value=1, value=1, key="vac_id")

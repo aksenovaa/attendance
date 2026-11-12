@@ -98,3 +98,12 @@ Streamlit, модуль attendance/ui/app.py, запуск `make ui` → http://
 pull остаётся в CLI. Write-back в UI — только после планировщика, с dry-run и подтверждением.
 intake.add_one / remove_correction — точечный ввод правок без затирания батча.
 report.csv_.order_from_rows — общий порядок сотрудников для CLI и UI.
+
+## Схема shifts_final (12.11.2026, п.2)
+Колонки: employee_id, day, cin, cout, worked (TEXT HH:MM), tag, source, rule, run_id,
+state (TEXT: '' | 'Выходной' | 'Отпуск'), worked_min (INTEGER, минуты), pairs (INTEGER).
+Миграция идемпотентная: merge._ensure_columns вызывается в build_final, ручной шаг не нужен.
+ВАЖНО: SUM(worked) по TEXT даёт сумму часовых префиксов, а не минут — агрегировать ТОЛЬКО worked_min.
+day_frame оставляем: это единственный источник календаря (is_work_day, is_holiday, absence_title).
+Поле day_frame.work_time не читаем никогда (дефект удвоения).
+Аналитика месяца — tools/analyze_month.py (итоги, состояния, пропуски vs календарь, R2, мультипары).
