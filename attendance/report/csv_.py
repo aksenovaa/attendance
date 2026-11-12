@@ -36,7 +36,7 @@ def write(
         by_emp.setdefault(row.employee_id, {})[row.day] = row
     sequence = order or sorted(by_emp)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8-sig", newline="") as fh:
+    with path.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh, delimiter=";")
         writer.writerow(HEADER)
         for eid in sequence:
@@ -65,5 +65,5 @@ def write(
                         row.tag,
                     ]
                 )
-            writer.writerow([f"Итого {name}", min_to_hm(total), "", "", "", "", ""])
+            writer.writerow(["Итого", "", "", "", "", min_to_hm(total), ""])
     return path

@@ -58,35 +58,90 @@ def _corrections(
     return grouped
 
 
-def _apply(slot: dict[str, object], c: sqlite3.Row) -> None:
+class _Slot:
+    """Изменяемое состояние дня (типизировано явно, без object)."""
+
+    __slots__ = ("cin", "cout", "pairs", "source", "state", "tag", "worked")
+
+    def __init__(
+        self,
+        cin: int | None,
+        cout: int | None,
+        worked: int | None,
+        state: str,
+        pairs: int,
+    ) -> None:
+        self.cin = cin
+        self.cout = cout
+        self.worked = worked
+        self.state = state
+        self.pairs = pairs
+        self.tag = ""
+        self.source = "api"
+
+    def snapshot(self) -> tuple[int | None, int | None, int | None, str]:
+        return (self.cin, self.cout, self.worked, self.state)
+
+    def restore(self, snap: tuple[int | None, int | None, int | None, str]) -> None:
+        self.cin, self.cout, self.worked, self.state = snap
+
+
+def _apply(slot: _Slot, c: sqlite3.Row) -> None:
     action = c["action"]
     if action == "keep":
         return
     if action in ("dayoff", "vacation"):
-        slot.update(
-            state="Выходной" if action == "dayoff" else "Отпуск",
-            cin=None,
-            cout=None,
-            worked=None,
-        )
+        slot.state = "Выходной" if action == "dayoff" else "Отпуск"
+        slot.cin = None
+        slot.cout = None
+        slot.worked = None
         return
     if action == "glitch":
-        slot.update(state="", worked=0)
+        slot.state = ""
+        slot.worked = 0
         return
+
     if c["cin"]:
-        slot["cin"] = hm_to_min(c["cin"])
+        slot.cin = hm_to_min(c["cin"])
     if c["cout"]:
-        slot["cout"] = hm_to_min(c["cout"])
-    cin, cout = slot["cin"], slot["cout"]
-    if action == "recon_logout" and not c["cout"] and c["worked"] and cin is not None:
-        slot["cout"] = (int(cin) + hm_to_min(c["worked"])) % 1440
-    if action == "recon_login" and not c["cin"] and c["worked"] and cout is not None:
-        slot["cin"] = (int(cout) - hm_to_min(c["worked"])) % 1440
-    if c["worked"]:
-        slot["worked"] = hm_to_min(c["worked"])
-    elif slot["cin"] is not None and slot["cout"] is not None:
-        slot["worked"] = duration_min(int(slot["cin"]), int(slot["cout"]))
-    slot["state"] = ""
+        slot.cout = hm_to_min(c["cout"])
+
+    worked_raw = c["worked"]
+    if (
+        action == "recon_logout"
+        and not c["cout"]
+        and worked_raw
+        and slot.cin is not None
+    ):
+        slot.cout = (slot.cin + hm_to_min(worked_raw)) % 1440
+    if (
+        action == "recon_login"
+        and not c["cin"]
+        and worked_raw
+        and slot.cout is not None
+    ):
+        slot.cin = (slot.cout - hm_to_min(worked_raw)) % 1440
+
+    if worked_raw:
+        slot.worked = hm_to_min(worked_raw)
+    elif slot.cin is not None and slot.cout is not None:
+        slot.worked = duration_min(slot.cin, slot.cout)
+    slot.state = ""
+
+
+def _employee_order(con: sqlite3.Connection) -> list[int]:
+    cols = {r["name"] for r in con.execute("PRAGMA table_info(employees)")}
+    if "sort_order" in cols:
+        query = (
+            "SELECT employee_id FROM employees WHERE exclude_from_timesheet=0 "
+            "ORDER BY COALESCE(sort_order, 999), employee_id"
+        )
+    else:
+        query = (
+            "SELECT employee_id FROM employees WHERE exclude_from_timesheet=0 "
+            "ORDER BY employee_id"
+        )
+    return [int(r["employee_id"]) for r in con.execute(query)]
 
 
 def build_final(con: sqlite3.Connection, month: str, run_id: str) -> list[FinalRow]:
@@ -95,35 +150,30 @@ def build_final(con: sqlite3.Connection, month: str, run_id: str) -> list[FinalR
     built = build_days(load_events(con))
     corr = _corrections(con, month)
     now = datetime.now(UTC).isoformat(timespec="seconds")
-    employees = [
-        r["employee_id"]
-        for r in con.execute(
-            "SELECT employee_id FROM employees WHERE exclude_from_timesheet=0"
-            " ORDER BY shop, full_name"
-        )
-    ]
+    employees = _employee_order(con)
+
     con.execute("DELETE FROM shifts_final WHERE run_id=?", (run_id,))
     result: list[FinalRow] = []
     for eid in employees:
         for day in range(1, ndays + 1):
             iso = date(year, mon, day).isoformat()
             b = built.get((eid, iso))
-            slot: dict[str, object] = {
-                "cin": b.cin if b else None,
-                "cout": b.cout if b else None,
-                "worked": b.worked if b else None,
-                "state": "" if b and b.cin is not None else "Выходной",
-                "tag": "",
-                "source": "api",
-                "pairs": b.pairs if b else 0,
-            }
-            before = dict(slot)
+            slot = _Slot(
+                cin=b.cin if b else None,
+                cout=b.cout if b else None,
+                worked=b.worked if b else None,
+                state="" if b and b.cin is not None else "Выходной",
+                pairs=b.pairs if b else 0,
+            )
+            before = slot.snapshot()
             for c in corr.get((eid, day), []):
                 _apply(slot, c)
-                slot["tag"] = TAGS.get(c["action"], "правка")
-                slot["source"] = c["source"]
-            for field in ("cin", "cout", "worked", "state"):
-                if before[field] != slot[field]:
+                slot.tag = TAGS.get(c["action"], "правка")
+                slot.source = c["source"]
+
+            fields = ("cin", "cout", "worked", "state")
+            for idx, field in enumerate(fields):
+                if before[idx] != slot.snapshot()[idx]:
                     con.execute(
                         "INSERT INTO audit (run_id, employee_id, day, field,"
                         " old_value, new_value, rule, source, ts)"
@@ -133,23 +183,24 @@ def build_final(con: sqlite3.Connection, month: str, run_id: str) -> list[FinalR
                             eid,
                             iso,
                             field,
-                            str(before[field]),
-                            str(slot[field]),
-                            str(slot["tag"]),
-                            str(slot["source"]),
+                            str(before[idx]),
+                            str(slot.snapshot()[idx]),
+                            slot.tag,
+                            slot.source,
                             now,
                         ),
                     )
+
             row = FinalRow(
                 employee_id=eid,
                 day=day,
-                cin=slot["cin"],  # type: ignore[arg-type]
-                cout=slot["cout"],  # type: ignore[arg-type]
-                worked=slot["worked"],  # type: ignore[arg-type]
-                state=str(slot["state"]),
-                tag=str(slot["tag"]),
-                source=str(slot["source"]),
-                pairs=int(slot["pairs"]),  # type: ignore[arg-type]
+                cin=slot.cin,
+                cout=slot.cout,
+                worked=slot.worked,
+                state=slot.state,
+                tag=slot.tag,
+                source=slot.source,
+                pairs=slot.pairs,
             )
             con.execute(
                 "INSERT OR REPLACE INTO shifts_final (employee_id, day, cin, cout,"

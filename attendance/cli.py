@@ -370,8 +370,15 @@ def cmd_report(args: argparse.Namespace) -> None:
         r["employee_id"]: " ".join((r["full_name"] or "").split())
         for r in con.execute("SELECT employee_id, full_name FROM employees")
     }
+    # извлекаем порядок из rows (build_final уже отсортировал по sort_order)
+    order: list[int] = []
+    seen: set[int] = set()
+    for r in rows:
+        if r.employee_id not in seen:
+            order.append(r.employee_id)
+            seen.add(r.employee_id)
     out = settings.out_dir / f"{args.month}.Полный табель.csv"
-    write_csv(out, args.month, rows, names)
+    write_csv(out, args.month, rows, names, order=order)
     print(f"Записано: {out}")
 
 
