@@ -11,3 +11,6 @@ lint:
 
 context-export:
 	.venv/bin/python tools/export_context.py
+
+ui:
+	streamlit run attendance/ui/app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true

@@ -67,3 +67,14 @@ def write(
                 )
             writer.writerow(["Итого", "", "", "", "", min_to_hm(total), ""])
     return path
+
+
+def order_from_rows(rows: list[FinalRow]) -> list[int]:
+    """Порядок сотрудников по первому появлению в rows (build уже отсортировал)."""
+    seen: set[int] = set()
+    out: list[int] = []
+    for row in rows:
+        if row.employee_id not in seen:
+            seen.add(row.employee_id)
+            out.append(row.employee_id)
+    return out

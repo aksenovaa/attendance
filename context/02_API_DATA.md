@@ -89,3 +89,12 @@ CLI: vacation-add (--employee | --employee-id, --start, --end, --reason, --sourc
 Слой в merge: события API → отпуск (state='Отпуск', времена/часы очищаются) → правки corrections.
 Правка сильнее отпуска; изменение пишется в аудит с source='vacations', П3 сходится.
 Дни обрезаются по границам месяца (days_by_employee).
+
+## Графический интерфейс (12.11.2026)
+Streamlit, модуль attendance/ui/app.py, запуск `make ui` → http://localhost:8501 (WSL).
+Принцип: UI — тонкий слой, вся логика в intake/merge/vacations/report; расчётов в UI нет.
+Сетка табеля read-only; изменения только через форму правки → corrections (источник обязателен).
+Разделы MVP: Обзор, Табель (просмотр+скачивание CSV), Правки (форма+очередь), Отпуска, Действия (build+report).
+pull остаётся в CLI. Write-back в UI — только после планировщика, с dry-run и подтверждением.
+intake.add_one / remove_correction — точечный ввод правок без затирания батча.
+report.csv_.order_from_rows — общий порядок сотрудников для CLI и UI.

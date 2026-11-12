@@ -179,3 +179,32 @@ def save(
     con.commit()
     pending = sum(1 for it in items if not it.accepted)
     return len(items), pending
+
+
+def add_one(con: sqlite3.Connection, month: str, item: Correction) -> int:
+    """Добавить одну правку, не затирая другие (точечный ввод из UI)."""
+    cur = con.execute(
+        "INSERT INTO corrections (month, employee_id, day, action, cin, cout,"
+        " worked, source, confidence, note, accepted) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            month,
+            item.employee_id,
+            item.day,
+            item.action,
+            item.cin,
+            item.cout,
+            item.worked,
+            item.source,
+            item.confidence,
+            item.note,
+            item.accepted,
+        ),
+    )
+    con.commit()
+    return int(cur.lastrowid or 0)
+
+
+def remove_correction(con: sqlite3.Connection, correction_id: int) -> int:
+    cur = con.execute("DELETE FROM corrections WHERE id=?", (correction_id,))
+    con.commit()
+    return cur.rowcount
