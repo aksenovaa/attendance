@@ -119,12 +119,17 @@ def build_days(
     result: dict[tuple[int, str], Built] = {}
     for key, slot in acc.items():
         seconds = slot.seconds
-        if mode == "span" and slot.first_in and slot.last_out:
-            seconds = int((slot.last_out - slot.first_in).total_seconds())
-        worked = seconds // 60 if slot.pairs else None
         span = None
         if slot.first_in and slot.last_out:
+            # span считаем по полным timestamp (с датами), а не только по времени суток
             span = int((slot.last_out - slot.first_in).total_seconds()) // 60
+        if mode == "span":
+            seconds = (
+                int((slot.last_out - slot.first_in).total_seconds())
+                if slot.first_in and slot.last_out
+                else 0
+            )
+        worked = seconds // 60 if slot.pairs else None
         result[key] = Built(
             cin=slot.cin,
             cout=slot.cout,
