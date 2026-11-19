@@ -52,6 +52,5 @@ def test_xlsx_metadata_hidden_and_breaks(tmp_path: Path) -> None:
     wb = load_workbook(out)
     ws = wb.active
     assert ws.column_dimensions["G"].hidden is True
-    assert ws.print_title_rows == "1:1"
-    # Разрыв после строки Итого (строка 5: шапка + ФИО + 2 дня + Итого)
+    assert ws.print_title_rows == "$1:$1"  # openpyxl нормализует в абсолютные ссылки
     assert any(b.id == 5 for b in ws.row_breaks)
