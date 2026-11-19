@@ -246,6 +246,7 @@ def main() -> None:
     p_b.set_defaults(func=cmd_build)
 
     p_rp = sub.add_parser("report")
+    p_rp.add_argument("--month", required=True)
     p_rp.add_argument(
         "--format",
         action="append",
@@ -417,8 +418,7 @@ def cmd_report(args: argparse.Namespace) -> None:
             order.append(r.employee_id)
             seen.add(r.employee_id)
 
-    formats = args.format or ["csv"]
-    for fmt in formats:
+    for fmt in args.format or ["csv"]:
         if fmt == "csv":
             out = settings.out_dir / f"{args.month}.Полный табель.csv"
             write_csv(out, args.month, rows, names, order=order)
