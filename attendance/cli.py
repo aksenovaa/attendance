@@ -266,6 +266,10 @@ def main() -> None:
     p_vd.add_argument("--id", type=int, required=True)
     p_vd.set_defaults(func=cmd_vacation_del)
 
+    p_cf = sub.add_parser("check-format")
+    p_cf.add_argument("--month", required=True)
+    p_cf.set_defaults(func=cmd_check_format)
+
     args = parser.parse_args()
     args.func(args)
 
@@ -457,6 +461,22 @@ def cmd_vacation_del(args: argparse.Namespace) -> None:
     settings = load_settings()
     con = connect(settings.db_path)
     print(f"Удалено записей: {remove(con, args.id)}")
+
+
+def cmd_check_format(args: argparse.Namespace) -> None:
+    from .checks_p5 import check5
+
+    settings = load_settings()
+    path = settings.out_dir / f"{args.month}.Полный табель.csv"
+    if not path.exists():
+        raise SystemExit(f"нет файла {path}; сначала report")
+    issues = check5(path)
+    if issues:
+        print(f"П5 FAIL: {len(issues)}")
+        for item in issues[:30]:
+            print(f"  {item}")
+        raise SystemExit(1)
+    print(f"П5: формат корректен → {path}")
 
 
 if __name__ == "__main__":
