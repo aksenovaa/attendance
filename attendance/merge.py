@@ -147,6 +147,9 @@ def _apply(slot: _Slot, c: sqlite3.Row) -> None:
     slot.state = ""
     if action in ("set", "add", "recon_logout", "recon_login"):
         slot.pairs = 1
+        # Пересчитываем span из cin/cout (правка задаёт одну смену)
+        if slot.cin is not None and slot.cout is not None:
+            slot.span = duration_min(slot.cin, slot.cout)
 
 
 def _employee_order(con: sqlite3.Connection) -> list[int]:

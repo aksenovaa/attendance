@@ -12,7 +12,7 @@ def _ev(ts: str, code: int) -> Event:
 
 
 def test_night_shift_span() -> None:
-    """Смена 07:39 → 00:12 следующего дня: span = 16:33, а не 24:00."""
+    """Смена 07:39 → 00:12 следующего дня: span = 992 мин (16:32), усечение секунд."""
     events = [
         _ev("2026-11-10 07:39:33", 0),  # in
         _ev("2026-11-11 00:12:25", 1),  # out
@@ -20,5 +20,5 @@ def test_night_shift_span() -> None:
     built = build_days(events)
     b = built[(1, "2026-11-10")]
     assert b.worked == 992  # 16:32 (усечение секунд)
-    assert b.span == 993  # 16:33 (полные timestamp)
+    assert b.span == 992  # 16:32 (полные timestamp, усечение)
     assert b.pairs == 1
