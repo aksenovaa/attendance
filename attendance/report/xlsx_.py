@@ -39,11 +39,18 @@ def write_xlsx(
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     center = Alignment(horizontal="center")
 
+    # Заголовок (без "Метка" в печати, но колонка остаётся для сверки)
     for col, title in enumerate(HEADER, start=1):
         cell = ws.cell(row=1, column=col, value=title)
         cell.font = header_font
         cell.border = border
         cell.alignment = center
+
+    # Скрываем колонку G (Метка) при печати
+    ws.column_dimensions["G"].hidden = True
+
+    # Сквозная шапка (повторять строку 1 на каждой странице)
+    ws.print_title_rows = "1:1"
 
     r = 2
     for eid in sequence:
@@ -88,6 +95,9 @@ def write_xlsx(
         for col in range(1, 8):
             ws.cell(row=r, column=col).border = border
         r += 1
+
+        # Разрыв страницы после каждого сотрудника
+        ws.row_breaks.append(wb.worksheets[0].row_breaks.Break(row=r))
 
     for i, width in enumerate((22, 12, 8, 8, 8, 12, 16), start=1):
         ws.column_dimensions[get_column_letter(i)].width = width
