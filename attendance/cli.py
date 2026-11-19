@@ -246,7 +246,13 @@ def main() -> None:
     p_b.set_defaults(func=cmd_build)
 
     p_rp = sub.add_parser("report")
-    p_rp.add_argument("--month", required=True)
+    p_rp.add_argument(
+        "--format",
+        action="append",
+        choices=["csv", "xlsx", "pdf"],
+        default=None,
+        help="формат вывода (можно несколько); по умолчанию csv",
+    )
     p_rp.set_defaults(func=cmd_report)
 
     p_va = sub.add_parser("vacation-add")
@@ -404,16 +410,29 @@ def cmd_report(args: argparse.Namespace) -> None:
         r["employee_id"]: " ".join((r["full_name"] or "").split())
         for r in con.execute("SELECT employee_id, full_name FROM employees")
     }
-    # извлекаем порядок из rows (build_final уже отсортировал по sort_order)
     order: list[int] = []
     seen: set[int] = set()
     for r in rows:
         if r.employee_id not in seen:
             order.append(r.employee_id)
             seen.add(r.employee_id)
-    out = settings.out_dir / f"{args.month}.Полный табель.csv"
-    write_csv(out, args.month, rows, names, order=order)
-    print(f"Записано: {out}")
+
+    formats = args.format or ["csv"]
+    for fmt in formats:
+        if fmt == "csv":
+            out = settings.out_dir / f"{args.month}.Полный табель.csv"
+            write_csv(out, args.month, rows, names, order=order)
+        elif fmt == "xlsx":
+            from .report.xlsx_ import write_xlsx
+
+            out = settings.out_dir / f"{args.month}.Полный табель.xlsx"
+            write_xlsx(out, args.month, rows, names, order=order)
+        else:
+            from .report.pdf_ import write_pdf
+
+            out = settings.out_dir / f"{args.month}.Полный табель.pdf"
+            write_pdf(out, args.month, rows, names, order=order)
+        print(f"Записано: {out}")
 
 
 def cmd_vacation_add(args: argparse.Namespace) -> None:

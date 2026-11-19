@@ -115,3 +115,12 @@ ingest.events.Built.span и shifts_final.span_min — floor((last_out − first_
 Строка Итого: «Итого;;;;;ЧЧЧ:ММ;» — часы могут превышать 99 (до ~500 за месяц), regex ЧЧ:ММ не подходит.
 Незакрытая смена (R2): строка дня с приходом и пустыми уходом/отработанным — допустимый формат,
 пока день ждёт скана. П5 это разрешает. Метка «глюк» допустима (движок её выдаёт для R1).
+
+## Форматы отчётов (19.11.2026)
+Источником служит один и тот же build_final + порядок сотрудников:
+- attendance/report/csv_.py  — CSV (утверждённый формат, основной для сверки)
+- attendance/report/xlsx_.py — XLSX (openpyxl), для Excel/1С
+- attendance/report/pdf_.py  — PDF (reportlab), шрифт с кириллицей обязателен
+Запуск: attendance report --month YYYY-MM --format csv|xlsx|pdf (можно несколько,
+по умолчанию csv). Содержимое идентично, различается только представление.
+Для PDF требуется пакет шрифтов: sudo apt-get install -y fonts-dejavu-core.
