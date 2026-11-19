@@ -1,7 +1,8 @@
 """П5: формальная валидация утверждённого табеля.
 
 Шапка, метки из списка, времена HH:MM, даты DD.MM.YYYY, недели,
-строки Итого, отсутствие дублей (сотрудник, день), состояние == метка.
+строки Итого (часы могут превышать 99), отсутствие дублей, состояние == метка.
+Незакрытая смена (R2): приход без ухода/отработанного — допустима.
 """
 
 from __future__ import annotations
@@ -19,11 +20,12 @@ HEADER = [
     "Отработано",
     "Метка",
 ]
-ALLOWED_TAGS = {"", "добавлено", "правка", "реконструкция"}
+ALLOWED_TAGS = {"", "добавлено", "правка", "реконструкция", "глюк"}
 ALLOWED_STATES = {"Выходной", "Отпуск"}
 WEEKDAYS = {"пон", "втор", "сред", "чет", "пят", "суб", "вос"}
 DATE_RE = re.compile(r"^\d{2}\.\d{2}\.\d{4}$")
-TIME_RE = re.compile(r"^\d{2}:\d{2}$")
+TIME_RE = re.compile(r"^\d{2}:\d{2}$")  # время внутри дня (00–23 ч)
+TOTAL_RE = re.compile(r"^\d{2,}:\d{2}$")  # итог за месяц (часы 100+)
 
 
 def check5(path: Path) -> list[str]:
@@ -55,7 +57,7 @@ def check5(path: Path) -> list[str]:
         if col0.startswith("Итого"):
             if current is None:
                 issues.append(f"строка {lineno}: Итого вне блока сотрудника")
-            elif not TIME_RE.match(worked):
+            elif not TOTAL_RE.match(worked):
                 issues.append(f"строка {lineno}: итог {worked!r} не ЧЧ:ММ")
             else:
                 emps_with_total.add(current)
@@ -88,8 +90,16 @@ def check5(path: Path) -> list[str]:
         for label, val in (("приход", cin), ("уход", cout), ("отработано", worked)):
             if val and not TIME_RE.match(val):
                 issues.append(f"строка {lineno}: {label} {val!r} не HH:MM")
-        if (cin or cout or worked) and not (cin and cout and worked):
-            issues.append(f"строка {lineno}: неполная строка приход/уход/отработано")
+
+        # допустимы: полная строка (приход+уход+отработано) либо R2 (только приход)
+        filled = [cin, cout, worked]
+        if any(filled):
+            full = all(filled)
+            unclosed = bool(cin) and not cout and not worked
+            if not (full or unclosed):
+                issues.append(
+                    f"строка {lineno}: неполная строка приход/уход/отработано"
+                )
 
     for emp in emps_with_days - emps_with_total:
         issues.append(f"{emp}: нет строки Итого")

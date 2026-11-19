@@ -11,18 +11,24 @@ GOOD = (
     "Альфредо;;;;;;\n"
     ";01.10.2026;чет;08:00;19:58;11:58;\n"
     ";03.10.2026;суб;Выходной;;;Выходной\n"
-    "Итого;;;;;11:58;\n"
+    ";05.10.2026;пон;07:47;;;\n"
+    "Итого;;;;;325:58;\n"
 )
 
 
-def test_good_format(tmp_path: Path) -> None:
+def test_good_format_with_unclosed_and_big_total(tmp_path: Path) -> None:
     p = tmp_path / "t.csv"
     p.write_text(GOOD, encoding="utf-8")
     assert check5(p) == []
 
 
 def test_bad_time_and_tag(tmp_path: Path) -> None:
-    bad = GOOD.replace("08:00", "8:0").replace("11:58;\n;03", "11:58;неизвестно\n;03")
+    bad = (
+        "Сотрудник / Итого;Дата;Неделя;Приход;Уход;Отработано;Метка\n"
+        "Альфредо;;;;;;\n"
+        ";01.10.2026;чет;8:0;19:58;11:58;неизвестно\n"
+        "Итого;;;;;325:58;\n"
+    )
     p = tmp_path / "t.csv"
     p.write_text(bad, encoding="utf-8")
     issues = check5(p)
@@ -31,7 +37,6 @@ def test_bad_time_and_tag(tmp_path: Path) -> None:
 
 
 def test_missing_total(tmp_path: Path) -> None:
-    no_total = GOOD.replace("Итого;;;;;11:58;\n", "")
     p = tmp_path / "t.csv"
-    p.write_text(no_total, encoding="utf-8")
+    p.write_text(GOOD.replace("Итого;;;;;325:58;\n", ""), encoding="utf-8")
     assert any("Итого" in i for i in check5(p))
