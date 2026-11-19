@@ -32,6 +32,7 @@ class FinalRow:
     tag: str
     source: str
     pairs: int
+    span: int | None = None
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,7 @@ def _ensure_columns(con: sqlite3.Connection) -> None:
         ("state", "TEXT NOT NULL DEFAULT ''"),
         ("worked_min", "INTEGER"),
         ("pairs", "INTEGER NOT NULL DEFAULT 0"),
+        ("span_min", "INTEGER"),
     ):
         if name not in cols:
             con.execute(f"ALTER TABLE shifts_final ADD COLUMN {name} {decl}")
@@ -75,7 +77,7 @@ def _ensure_columns(con: sqlite3.Connection) -> None:
 class _Slot:
     """Изменяемое состояние дня (типизировано явно, без object)."""
 
-    __slots__ = ("cin", "cout", "pairs", "source", "state", "tag", "worked")
+    __slots__ = ("cin", "cout", "pairs", "source", "span", "state", "tag", "worked")
 
     def __init__(
         self,
@@ -84,6 +86,7 @@ class _Slot:
         worked: int | None,
         state: str,
         pairs: int,
+        span: int | None,
     ) -> None:
         self.cin = cin
         self.cout = cout
@@ -92,6 +95,7 @@ class _Slot:
         self.pairs = pairs
         self.tag = ""
         self.source = "api"
+        self.span = span
 
     def snapshot(self) -> tuple[int | None, int | None, int | None, str]:
         return (self.cin, self.cout, self.worked, self.state)
@@ -180,6 +184,7 @@ def build_final(con: sqlite3.Connection, month: str, run_id: str) -> list[FinalR
                 worked=b.worked if b else None,
                 state="" if b and b.cin is not None else "Выходной",
                 pairs=b.pairs if b else 0,
+                span=b.span if b else None,
             )
             before = slot.snapshot()
             if iso in vac.get(eid, ()):
@@ -223,11 +228,12 @@ def build_final(con: sqlite3.Connection, month: str, run_id: str) -> list[FinalR
                 tag=slot.tag,
                 source=slot.source,
                 pairs=slot.pairs,
+                span=slot.span,
             )
             con.execute(
                 "INSERT OR REPLACE INTO shifts_final (employee_id, day, cin, cout,"
-                " worked, tag, source, rule, run_id, state, worked_min, pairs)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                " worked, tag, source, rule, run_id, state, worked_min, pairs, span_min)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     eid,
                     iso,
@@ -241,6 +247,7 @@ def build_final(con: sqlite3.Connection, month: str, run_id: str) -> list[FinalR
                     row.state,
                     row.worked,
                     row.pairs,
+                    row.span,
                 ),
             )
             result.append(row)

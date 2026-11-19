@@ -79,9 +79,7 @@ CSV «;» UTF-8 (без BOM). Шапка: Сотрудник / Итого;Дат
 → 5 пересимуляция → 6 dry-run → confirm → POST → контрольный pull.
 Ledger: data/ledger/*.jsonl + копия на Диск. Откат — удаление в веб-UI по ledger.
 
-## Новый факт (ДД.ММ.ГГГГ)
-Описание.
-
+##
 ## Отпуска как данные (12.11.2026)
 Таблица vacations(id, employee_id, start_date, end_date, reason, source) — периоды, не месячные правки.
 Создаётся автоматически (vacations.ensure_schema), миграция не требуется.
@@ -107,3 +105,8 @@ state (TEXT: '' | 'Выходной' | 'Отпуск'), worked_min (INTEGER, м�
 day_frame оставляем: это единственный источник календаря (is_work_day, is_holiday, absence_title).
 Поле day_frame.work_time не читаем никогда (дефект удвоения).
 Аналитика месяца — tools/analyze_month.py (итоги, состояния, пропуски vs календарь, R2, мультипары).
+
+## span_min (12.11.2026)
+ingest.events.Built.span и shifts_final.span_min — floor((last_out − first_in)/60) по timestamps.
+Нужен для корректного П4: worked считается из секунд, а cin/cout отображаются без секунд,
+поэтому разность отображаемых минут даёт ±1 мин. Проверка П4 — attendance/checks_p4.py.

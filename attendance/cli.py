@@ -372,6 +372,12 @@ def cmd_build(args: argparse.Namespace) -> None:
     rows = build_final(con, args.month, run_id)
     report = check3(con, args.month, run_id, rows)
     bad = [r for r in report if not r.ok]
+    from .checks_p4 import check4_rows
+
+    p4 = check4_rows(rows)
+    print(f"П4 FAIL={len(p4)}")
+    for issue in p4[:20]:
+        print(f"  emp={issue.employee_id} {issue.day}: {issue.kind}")
     print(f"{args.month}: строк {len(rows)}, run_id={run_id}, П3 FAIL={len(bad)}")
     for r in bad:
         print(f"  emp={r.employee_id}: {r.base} + {r.delta} != {r.final}")

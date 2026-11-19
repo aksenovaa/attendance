@@ -32,6 +32,7 @@ class Built:
     pairs: int
     orphan_out: int
     unclosed_in: bool
+    span: int | None = None
 
 
 @dataclass
@@ -121,6 +122,9 @@ def build_days(
         if mode == "span" and slot.first_in and slot.last_out:
             seconds = int((slot.last_out - slot.first_in).total_seconds())
         worked = seconds // 60 if slot.pairs else None
+        span = None
+        if slot.first_in and slot.last_out:
+            span = int((slot.last_out - slot.first_in).total_seconds()) // 60
         result[key] = Built(
             cin=slot.cin,
             cout=slot.cout,
@@ -128,5 +132,6 @@ def build_days(
             pairs=slot.pairs,
             orphan_out=slot.orphan_out,
             unclosed_in=slot.unclosed_in,
+            span=span,
         )
     return result
