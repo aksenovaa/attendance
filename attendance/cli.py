@@ -372,16 +372,23 @@ def cmd_build(args: argparse.Namespace) -> None:
     rows = build_final(con, args.month, run_id)
     report = check3(con, args.month, run_id, rows)
     bad = [r for r in report if not r.ok]
-    from .checks_p4 import check4_rows
 
-    p4 = check4_rows(rows)
-    print(f"П4 FAIL={len(p4)}")
-    for issue in p4[:20]:
-        print(f"  emp={issue.employee_id} {issue.day}: {issue.kind}")
-    print(f"{args.month}: строк {len(rows)}, run_id={run_id}, П3 FAIL={len(bad)}")
-    for r in bad:
-        print(f"  emp={r.employee_id}: {r.base} + {r.delta} != {r.final}")
+    from .checks_p4 import check4_edited, check4_rows
+
+    p4_fail = check4_rows(rows)
+    p4_warn = check4_edited(rows)
+
     (settings.data_dir / "last_run.txt").write_text(run_id, encoding="utf-8")
+    print(
+        f"{args.month}: строк {len(rows)}, run_id={run_id}, "
+        f"П3 FAIL={len(bad)}, П4 FAIL={len(p4_fail)} (авто), WARN={len(p4_warn)} (правки)"
+    )
+    for r in bad:
+        print(f"  П3 emp={r.employee_id}: {r.base}+{r.delta} != {r.final}")
+    for issue in p4_fail[:20]:
+        print(f"  П4 FAIL emp={issue.employee_id} {issue.day}: {issue.kind}")
+    for issue in p4_warn[:10]:
+        print(f"  П4 WARN emp={issue.employee_id} {issue.day}: {issue.kind}")
 
 
 def cmd_report(args: argparse.Namespace) -> None:

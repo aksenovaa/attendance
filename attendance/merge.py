@@ -145,6 +145,8 @@ def _apply(slot: _Slot, c: sqlite3.Row) -> None:
     elif slot.cin is not None and slot.cout is not None:
         slot.worked = duration_min(slot.cin, slot.cout)
     slot.state = ""
+    if action in ("set", "add", "recon_logout", "recon_login"):
+        slot.pairs = 1
 
 
 def _employee_order(con: sqlite3.Connection) -> list[int]:
