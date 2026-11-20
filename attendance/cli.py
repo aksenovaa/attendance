@@ -277,6 +277,12 @@ def main() -> None:
     p_cf.add_argument("--month", required=True)
     p_cf.set_defaults(func=cmd_check_format)
 
+    p_ec = sub.add_parser("employees-create")
+    p_ec.add_argument(
+        "--confirm", action="store_true", help="реальная отправка в Workly"
+    )
+    p_ec.set_defaults(func=cmd_employees_create)
+
     args = parser.parse_args()
     args.func(args)
 
@@ -496,6 +502,14 @@ def cmd_check_format(args: argparse.Namespace) -> None:
             print(f"  {item}")
         raise SystemExit(1)
     print(f"П5: формат корректен → {path}")
+
+
+def cmd_employees_create(args: argparse.Namespace) -> None:
+    from .roster_create import create_all
+
+    settings = load_settings()
+    con = connect(settings.db_path)
+    create_all(settings, con, confirm=args.confirm)
 
 
 if __name__ == "__main__":
