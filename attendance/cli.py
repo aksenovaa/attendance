@@ -281,6 +281,10 @@ def main() -> None:
     p_ec.add_argument(
         "--confirm", action="store_true", help="реальная отправка в Workly"
     )
+    p_ec.add_argument(
+        "--employee",
+        help="создать только этого сотрудника (ключ: taranenko | karulin | yusov)",
+    )
     p_ec.set_defaults(func=cmd_employees_create)
 
     args = parser.parse_args()
@@ -509,7 +513,7 @@ def cmd_employees_create(args: argparse.Namespace) -> None:
 
     settings = load_settings()
     con = connect(settings.db_path)
-    create_all(settings, con, confirm=args.confirm)
+    create_all(settings, con, confirm=args.confirm, only=args.employee)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,8 @@
 
 Анализирует shifts_final и events_raw, находит проблемные места:
 - R2: нет ухода (unclosed in) → добавить out в конце дня
-- Бродячие события (orphan out, бродячий in) → генерация противоположных событий
+- Orphan out: уход без прихода → добавить in в 08:00
+- Бродячий in: приход без ухода в конце дня → добавить out через 1 секунду
 - R9: синтез для сотрудников без событий → генерация полной смены
 
 Генерирует InsertPlan — список событий для вставки.
@@ -28,7 +29,7 @@ def plan(
 ) -> InsertPlan:
     """Планирует вставки для приведения Workly к утверждённому табелю.
 
-    Сейчас реализован только R2 (нет ухода).
+    Сейчас реализованы R2 (нет ухода) и orphan_out (уход без прихода).
     """
     run_id = uuid.uuid4().hex[:12]
     inserts: list[Insert] = []
@@ -49,6 +50,21 @@ def plan(
                     event_time=day,
                     code=1,  # out
                     reason="r2_close",
+                    source=f"writeback:{run_id}",
+                )
+            )
+            continue
+
+        # Orphan out: есть уход, нет прихода
+        if row.cin is None and row.cout is not None:
+            # Добавляем in в начале дня (08:00:00 — типовой профиль офсета)
+            day = datetime(year, mon, row.day, 8, 0, 0, tzinfo=TZ)
+            inserts.append(
+                Insert(
+                    employee_id=row.employee_id,
+                    event_time=day,
+                    code=0,  # in
+                    reason="orphan_out_open",
                     source=f"writeback:{run_id}",
                 )
             )

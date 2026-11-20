@@ -142,6 +142,10 @@ class WorklyClient:
             json=payload,
             timeout=self.s.timeout,
         )
+        if not resp.ok:
+            print(
+                f"Ошибка {resp.status_code}: {resp.text}", file=__import__("sys").stderr
+            )
         resp.raise_for_status()
         result: dict[str, Any] = resp.json()
         return result

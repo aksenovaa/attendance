@@ -78,3 +78,32 @@ def test_skip_state_days(tmp_path: Path) -> None:
     ]
     plan_result = plan(con, "2026-11", rows)
     assert len(plan_result) == 0
+
+
+def test_orphan_out_open(tmp_path: Path) -> None:
+    """Orphan out: есть уход, нет прихода → добавить in в 08:00."""
+    con = connect(tmp_path / "t.sqlite")
+    rows = [
+        FinalRow(
+            employee_id=1,
+            day=15,
+            cin=None,  # нет прихода
+            cout=1200,  # 20:00
+            worked=None,
+            state="",
+            tag="",
+            source="api",
+            pairs=1,
+            span=None,
+        )
+    ]
+    plan_result = plan(con, "2026-11", rows)
+    assert len(plan_result) == 1
+    ins = next(iter(plan_result))
+    assert ins.employee_id == 1
+    assert ins.code == 0  # in
+    assert ins.reason == "orphan_out_open"
+    # Проверяем время: 08:00:00
+    assert ins.event_time.hour == 8
+    assert ins.event_time.minute == 0
+    assert ins.event_time.second == 0
