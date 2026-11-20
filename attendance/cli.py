@@ -287,6 +287,18 @@ def main() -> None:
     )
     p_ec.set_defaults(func=cmd_employees_create)
 
+    p_sm = sub.add_parser("synth-matrix")
+    p_sm.add_argument("--month", required=True)
+    p_sm.add_argument(
+        "--file",
+        required=True,
+        help="paper.json: {employee, month, days:[{day, hours}]}",
+    )
+    p_sm.add_argument(
+        "--profile-in", default="08:00", help="профильный приход (офсет 08:00)"
+    )
+    p_sm.set_defaults(func=cmd_synth_matrix)
+
     args = parser.parse_args()
     args.func(args)
 
@@ -514,6 +526,30 @@ def cmd_employees_create(args: argparse.Namespace) -> None:
     settings = load_settings()
     con = connect(settings.db_path)
     create_all(settings, con, confirm=args.confirm, only=args.employee)
+
+
+def cmd_synth_matrix(args: argparse.Namespace) -> None:
+    import json
+    from pathlib import Path
+
+    from .intake import name_to_id, save
+    from .roster import resolve_name
+    from .synth_matrix import MatrixDay, build_corrections
+    from .timeutil import hm_to_min
+
+    settings = load_settings()
+    con = connect(settings.db_path)
+    data = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    names = name_to_id(con)
+    key = resolve_name(" ".join(data["employee"].split()))
+    if key not in names:
+        raise SystemExit(f"Сотрудник не найден в ростере: {data['employee']!r}")
+    eid = names[key]
+    days = [MatrixDay(day=x["day"], hours=hm_to_min(x["hours"])) for x in data["days"]]
+    profile_in = hm_to_min(args.profile_in)
+    corrs = build_corrections(eid, args.month, days, profile_in=profile_in)
+    save(con, args.month, corrs, source="synth_paper")
+    print(f"synth-matrix: {len(corrs)} правок для {key} ({args.month})")
 
 
 if __name__ == "__main__":
