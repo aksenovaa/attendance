@@ -34,11 +34,31 @@ OFFLINE_EMPLOYEES: tuple[NewEmployee, ...] = (
 
 
 def next_tab_numbers(con: sqlite3.Connection, count: int) -> list[str]:
+    """Следующие свободные табельные номера (учитывает и БД, и pending в ledger)."""
+    # Максимум из БД
     row = con.execute(
         "SELECT MAX(CAST(tab_number AS INTEGER)) FROM employees"
         " WHERE tab_number GLOB '[0-9]*'"
     ).fetchone()
     base = int(row[0] or 0)
+
+    # Проверяем pending в ledger (созданные, но ещё не синхронизированные)
+    from pathlib import Path
+
+    ledger_path = (
+        Path(__file__).parent.parent / "data" / "ledger" / "employees_create.jsonl"
+    )
+    if ledger_path.exists():
+        import json
+
+        pending = 0
+        for line in ledger_path.open("r", encoding="utf-8"):
+            if line.strip():
+                data = json.loads(line)
+                if "payload" in data and "tab_number" in data["payload"]:
+                    pending = max(pending, int(data["payload"]["tab_number"]))
+        base = max(base, pending)
+
     return [str(base + i) for i in range(1, count + 1)]
 
 
