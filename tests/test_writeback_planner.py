@@ -96,3 +96,31 @@ def test_skip_state_days(tmp_path: Path) -> None:
     ]
     plan_result = plan(con, "2026-11", rows)
     assert len(plan_result) == 0
+
+
+def test_skip_existing_events(tmp_path: Path) -> None:
+    """Правка с существующими событиями — не вставляем (уже применена)."""
+    con = connect(tmp_path / "t.sqlite")
+    # Создаём событие в events_raw
+    con.execute(
+        "CREATE TABLE events_raw (employee_id INTEGER, event_date TEXT, event_code INTEGER)"
+    )
+    con.execute("INSERT INTO events_raw VALUES (1, '2026-11-15', 0)")
+    con.commit()
+
+    rows = [
+        FinalRow(
+            employee_id=1,
+            day=15,
+            cin=480,
+            cout=1020,
+            worked=540,
+            state="",
+            tag="правка",  # правка существующего
+            source="decision",  # не api
+            pairs=1,
+            span=540,
+        )
+    ]
+    plan_result = plan(con, "2026-11", rows)
+    assert len(plan_result) == 0  # не вставляем, события уже есть

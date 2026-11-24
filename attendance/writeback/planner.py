@@ -26,8 +26,9 @@ def plan(
 ) -> InsertPlan:
     """Планирует вставки для приведения Workly к утверждённому табелю.
 
-    Сейчас — заглушка, возвращает пустой план.
-    Реализация: анализ shifts_final vs events_raw, генерация Insert для синтезов.
+    Вставки только для дней с искусственными данными (синтез/реконструкция),
+    где событий в Workly ещё нет. Правки существующих событий пропускаются
+    (они уже применены через UI или corrections).
     """
     run_id = uuid.uuid4().hex[:12]
     inserts: list[Insert] = []
@@ -42,8 +43,20 @@ def plan(
         if row.worked is None or row.worked <= 0:
             continue
 
-        # Синтез/правка: вставляем пары (приход, уход) из утверждённого табеля
+        # Проверка: есть ли уже события для этого дня?
+        event_date = f"{year}-{mon:02d}-{row.day:02d}"
+        existing = con.execute(
+            "SELECT 1 FROM events_raw WHERE employee_id=? AND event_date=?",
+            (row.employee_id, event_date),
+        ).fetchone()
+        if existing:
+            # События уже есть — это правка (уже применена), не вставляем
+            continue
+
+        # Синтез/реконструкция: вставляем пары (приход, уход)
         if row.cin is not None and row.cout is not None:
+            from datetime import timedelta
+
             day_cin = datetime(
                 year, mon, row.day, row.cin // 60, row.cin % 60, tzinfo=TZ
             )
@@ -52,8 +65,6 @@ def plan(
             )
             # Переход через полночь: cout < cin → cout следующего дня
             if row.cout < row.cin:
-                from datetime import timedelta
-
                 day_cout += timedelta(days=1)
 
             inserts.append(
