@@ -299,6 +299,9 @@ def main() -> None:
     )
     p_sm.set_defaults(func=cmd_synth_matrix)
 
+    p_bk = sub.add_parser("backup")
+    p_bk.set_defaults(func=cmd_backup)
+
     args = parser.parse_args()
     args.func(args)
 
@@ -401,6 +404,18 @@ def cmd_corrections_accept(args: argparse.Namespace) -> None:
 def cmd_build(args: argparse.Namespace) -> None:
     settings = load_settings()
     con = connect(settings.db_path)
+    import time
+
+    raw_dir = settings.data_dir / "raw" / args.month
+    if raw_dir.exists():
+        files = [f for f in raw_dir.iterdir() if f.is_file()]
+        if files:
+            age_days = (time.time() - max(f.stat().st_mtime for f in files)) / 86400
+            if age_days > 3:
+                print(
+                    f"ВНИМАНИЕ: данные {args.month} старше {age_days:.1f} дн. — "
+                    f"выполните attendance pull --month {args.month}"
+                )
     run_id = uuid.uuid4().hex[:12]
     rows = build_final(con, args.month, run_id)
     report = check3(con, args.month, run_id, rows)
@@ -550,6 +565,14 @@ def cmd_synth_matrix(args: argparse.Namespace) -> None:
     corrs = build_corrections(eid, args.month, days, profile_in=profile_in)
     save(con, args.month, corrs, source="synth_paper")
     print(f"synth-matrix: {len(corrs)} правок для {key} ({args.month})")
+
+
+def cmd_backup(args: argparse.Namespace) -> None:
+    from .backup import backup_db
+
+    settings = load_settings()
+    dst = backup_db(settings)
+    print(f"backup: {dst} ({dst.stat().st_size} байт)")
 
 
 if __name__ == "__main__":

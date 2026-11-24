@@ -372,3 +372,12 @@ roster-apply применён, все трое в БД с shop=offset.
 write-back apply planner переформулировать: вставлять события только для дней с
 source != 'api' (правки/реконструкции/синтез), где утверждённый табель имеет часы,
 а Workly их не имеет. R2/orphan в planner — черновик, в бою не запускать.
+
+## Обновление 20.11.2026 — сторонний анализ портфеля обработан
+Разбор DeepSeek (printing-calculator, календари, TYPO3-бэкапы, SEO) сверен с attendance:
+большинство практик уже есть (контекст-бандл, ADR, ledger, dry-run, golden, watchdog).
+Принято новое: backup.py + CLI backup (integrity_check, без перезаписи), docs/RUNBOOK.md,
+docs/CHECKLIST.md, warning о свежести raw в build, chmod 600 на data/.
+Отклонено для attendance: переход на Rust и Django (Python+SQLite+Streamlit достаточно).
+Вне контура (решения Андрея): indesign_bridge для календарей/штрихкодов, TYPO3-бэкапы
+(.env, целостность, без overwrite), SEO-комбайн (.env, CI).
