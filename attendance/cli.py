@@ -256,6 +256,15 @@ def main() -> None:
     )
     p_rp.set_defaults(func=cmd_report)
 
+    p_wp = sub.add_parser("writeback-plan")
+    p_wp.add_argument("--month", required=True)
+    p_wp.set_defaults(func=cmd_writeback_plan)
+
+    p_wa = sub.add_parser("writeback-apply")
+    p_wa.add_argument("--month", required=True)
+    p_wa.add_argument("--confirm", action="store_true")
+    p_wa.set_defaults(func=cmd_writeback_apply)
+
     p_va = sub.add_parser("vacation-add")
     p_va.add_argument("--employee")
     p_va.add_argument("--employee-id", type=int)
@@ -541,6 +550,47 @@ def cmd_employees_create(args: argparse.Namespace) -> None:
     settings = load_settings()
     con = connect(settings.db_path)
     create_all(settings, con, confirm=args.confirm, only=args.employee)
+
+
+def cmd_writeback_plan(args: argparse.Namespace) -> None:
+    from .writeback.planner import plan
+
+    settings = load_settings()
+    con = connect(settings.db_path)
+    run_id = (settings.data_dir / "last_run.txt").read_text("utf-8").strip()
+    rows = build_final(con, args.month, run_id)
+    plan_result = plan(con, args.month, rows)
+    print(
+        f"writeback-plan {args.month}: run_id={plan_result.run_id}, вставок={len(plan_result)}"
+    )
+    for ins in plan_result:
+        kind = "in " if ins.code == 0 else "out"
+        print(
+            f"  {kind} emp={ins.employee_id} "
+            f"{ins.event_time.strftime('%Y-%m-%d %H:%M:%S')}  reason={ins.reason}"
+        )
+
+
+def cmd_writeback_apply(args: argparse.Namespace) -> None:
+    from .writeback.api import apply
+    from .writeback.planner import plan
+
+    settings = load_settings()
+    con = connect(settings.db_path)
+    run_id = (settings.data_dir / "last_run.txt").read_text("utf-8").strip()
+    rows = build_final(con, args.month, run_id)
+    plan_result = plan(con, args.month, rows)
+    if not plan_result:
+        print(f"writeback-apply {args.month}: вставок нет, ничего не отправлено")
+        return
+    print(
+        f"writeback-apply {args.month}: {len(plan_result)} вставок "
+        f"(run_id={plan_result.run_id})"
+    )
+    if not args.confirm:
+        print("dry-run: ничего не отправлено. Повторите с --confirm.")
+        return
+    apply(plan_result.inserts, settings, plan_result.run_id)
 
 
 def cmd_synth_matrix(args: argparse.Namespace) -> None:
