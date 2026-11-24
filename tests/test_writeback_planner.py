@@ -31,8 +31,9 @@ def test_no_inserts_for_complete_days(tmp_path: Path) -> None:
 
 
 def test_synth_insert(tmp_path: Path) -> None:
-    """Синтез/правка → вставка пары (in, out)."""
+    """Синтез (событий нет) → вставка пары (in, out)."""
     con = connect(tmp_path / "t.sqlite")
+    # В events_raw для emp=1 day=15 событий нет → planner должен сгенерировать вставки
     rows = [
         FinalRow(
             employee_id=1,
@@ -101,11 +102,25 @@ def test_skip_state_days(tmp_path: Path) -> None:
 def test_skip_existing_events(tmp_path: Path) -> None:
     """Правка с существующими событиями — не вставляем (уже применена)."""
     con = connect(tmp_path / "t.sqlite")
-    # Создаём событие в events_raw
+    # Таблица events_raw уже создана функцией connect(); вставляем событие
+    # с правильным полем event_full_date (формат "YYYY-MM-DD HH:MM:SS")
     con.execute(
-        "CREATE TABLE events_raw (employee_id INTEGER, event_date TEXT, event_code INTEGER)"
+        "INSERT INTO events_raw (event_key, employee_id, event_full_date, event_code,"
+        " mode, location_id, serial_number, source, pulled_at, run_id)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            "1|2026-11-15 08:00:00|0",
+            1,
+            "2026-11-15 08:00:00",
+            0,
+            "auto",
+            29384,
+            "",
+            "api",
+            "",
+            "test",
+        ),
     )
-    con.execute("INSERT INTO events_raw VALUES (1, '2026-11-15', 0)")
     con.commit()
 
     rows = [
@@ -123,4 +138,4 @@ def test_skip_existing_events(tmp_path: Path) -> None:
         )
     ]
     plan_result = plan(con, "2026-11", rows)
-    assert len(plan_result) == 0  # не вставляем, события уже есть
+    assert len(plan_result) == 0  # не вставляем, события уже есть'''

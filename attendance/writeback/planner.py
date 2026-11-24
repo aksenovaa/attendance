@@ -46,8 +46,8 @@ def plan(
         # Проверка: есть ли уже события для этого дня?
         event_date = f"{year}-{mon:02d}-{row.day:02d}"
         existing = con.execute(
-            "SELECT 1 FROM events_raw WHERE employee_id=? AND event_date=?",
-            (row.employee_id, event_date),
+            "SELECT 1 FROM events_raw WHERE employee_id=? AND event_full_date LIKE ?",
+            (row.employee_id, f"{event_date}%"),
         ).fetchone()
         if existing:
             # События уже есть — это правка (уже применена), не вставляем
