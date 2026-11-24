@@ -381,3 +381,20 @@ docs/CHECKLIST.md, warning о свежести raw в build, chmod 600 на data
 Отклонено для attendance: переход на Rust и Django (Python+SQLite+Streamlit достаточно).
 Вне контура (решения Андрея): indesign_bridge для календарей/штрихкодов, TYPO3-бэкапы
 (.env, целостность, без overwrite), SEO-комбайн (.env, CI).
+
+## Обновление 24.11.2026 — backup, RUNBOOK, CHECKLIST внедрены
+Добавлен attendance/backup.py + CLI backup: онлайн-копия БД с PRAGMA integrity_check
+и сверкой счётчиков ключевых таблиц; непригодная копия удаляется; имя не перезаписывается (суффикс _02).
+docs/RUNBOOK.md: восстановление из бэкапа + ledger (corrections, writeback, employees_create).
+docs/CHECKLIST.md: чек-лист новых write-задач (секреты/целостность/ledger/dry-run/эмпирика/мониторинг/восстановление).
+Freshness-warning в build: если raw месяца старше 3 дней, печатает предупреждение.
+Тесты: test_backup.py (2 теста: создание копии + защита от перезаписи).
+66 тестов зелёные, хуки прошли (end-of-file-fixer поправил RUNBOOK/CHECKLIST).
+
+## Обновление 24.11.2026 — planner переформулирован
+Planner переписан под правильную логику write-back: вставки только для дней
+с искусственными данными (правки/реконструкции/синтез), где source != 'api'.
+R2 (дни без ухода) НЕ вставляются — они ждут скан, это соответствует правилу R2.
+Тесты: test_synth_insert, test_skip_api_source, test_skip_state_days.
+После переформулировки write-back готов к применению для синтезов (Жомшид R9,
+бумажные сотрудники) — вставка пар (in, out) из утверждённого табеля.

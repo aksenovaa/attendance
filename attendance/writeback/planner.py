@@ -1,12 +1,9 @@
 """Планировщик вставок для write-back.
 
-Анализирует shifts_final и events_raw, находит проблемные места:
-- R2: нет ухода (unclosed in) → добавить out в конце дня
-- Orphan out: уход без прихода → добавить in в 08:00
-- Бродячий in: приход без ухода в конце дня → добавить out через 1 секунду
-- R9: синтез для сотрудников без событий → генерация полной смены
+Вставляет события только для дней с искусственными данными (правки/реконструкции/синтез),
+где утверждённый табель имеет часы, а Workly их не имеет.
 
-Генерирует InsertPlan — список событий для вставки.
+НЕ вставляет для дней R2 (ждут скан) — это противоречит правилу R2.
 """
 
 from __future__ import annotations
@@ -29,7 +26,8 @@ def plan(
 ) -> InsertPlan:
     """Планирует вставки для приведения Workly к утверждённому табелю.
 
-    Сейчас реализованы R2 (нет ухода) и orphan_out (уход без прихода).
+    Сейчас — заглушка, возвращает пустой план.
+    Реализация: анализ shifts_final vs events_raw, генерация Insert для синтезов.
     """
     run_id = uuid.uuid4().hex[:12]
     inserts: list[Insert] = []
@@ -39,32 +37,40 @@ def plan(
     for row in rows:
         if row.state:  # пропуск выходных/отпусков
             continue
+        if row.source == "api":  # пропускаем авто-слой (ждём скан для R2)
+            continue
+        if row.worked is None or row.worked <= 0:
+            continue
 
-        # R2: есть приход, нет ухода
-        if row.cin is not None and row.cout is None:
-            # Добавляем out в конце дня (23:59:59)
-            day = datetime(year, mon, row.day, 23, 59, 59, tzinfo=TZ)
+        # Синтез/правка: вставляем пары (приход, уход) из утверждённого табеля
+        if row.cin is not None and row.cout is not None:
+            day_cin = datetime(
+                year, mon, row.day, row.cin // 60, row.cin % 60, tzinfo=TZ
+            )
+            day_cout = datetime(
+                year, mon, row.day, row.cout // 60, row.cout % 60, tzinfo=TZ
+            )
+            # Переход через полночь: cout < cin → cout следующего дня
+            if row.cout < row.cin:
+                from datetime import timedelta
+
+                day_cout += timedelta(days=1)
+
             inserts.append(
                 Insert(
                     employee_id=row.employee_id,
-                    event_time=day,
-                    code=1,  # out
-                    reason="r2_close",
+                    event_time=day_cin,
+                    code=0,  # in
+                    reason="synth_insert",
                     source=f"writeback:{run_id}",
                 )
             )
-            continue
-
-        # Orphan out: есть уход, нет прихода
-        if row.cin is None and row.cout is not None:
-            # Добавляем in в начале дня (08:00:00 — типовой профиль офсета)
-            day = datetime(year, mon, row.day, 8, 0, 0, tzinfo=TZ)
             inserts.append(
                 Insert(
                     employee_id=row.employee_id,
-                    event_time=day,
-                    code=0,  # in
-                    reason="orphan_out_open",
+                    event_time=day_cout,
+                    code=1,  # out
+                    reason="synth_insert",
                     source=f"writeback:{run_id}",
                 )
             )
